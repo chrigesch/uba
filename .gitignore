@@ -6,9 +6,12 @@ __pycache__/
 # Distribution / packaging
 downloads/
 notebooks/
+.vscode/
 
 # Jupyter Notebook
 .ipynb_checkpoints
 
 # Environments
 .env
+
+# VSCode
