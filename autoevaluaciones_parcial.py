@@ -10,7 +10,7 @@ def cruzar_listas_actas_campus(
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2],
     crear_excel: bool,
-) -> pd.DataFrame:
+) -> dict:
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
     listado_campus = listado_campus.iloc[:, :-1]
     if parcial == 1:
@@ -59,10 +59,29 @@ def cruzar_listas_actas_campus(
     listado_cruzado = listado_cruzado.sort_values(
         by=["C", "habilitada/o", "AyN"], ascending=[True, False, True]
     ).reset_index(drop=True)
+    # Crear el resumen de todas las comisiones
+    resumen = (
+        listado_cruzado[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
+    )
+    resumen["total"] = resumen.sum(axis=1)
+    resumen.loc["total"] = resumen.sum(axis=0)
+    try:
+        resumen = resumen[[True, False, "total"]].rename(
+            columns={True: "habilitados", False: "inhabilitados"}
+        )
+    except Exception:
+        try:
+            resumen = resumen[[False, "total"]].rename(columns={False: "inhabilitados"})
+        except Exception:
+            resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
+    resumen = resumen.reset_index()
     # Crear un excel con una hoja por cada comisión
     if crear_excel:
         # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
-        dfs = {"todas": listado_cruzado}
+        dfs = {
+            "resumen": resumen,
+            "todas": listado_cruzado,
+        }
         for comision in listado_cruzado["C"].unique():
             dfs[f"Comision_{comision}"] = listado_cruzado[
                 listado_cruzado["C"] == comision
@@ -79,4 +98,4 @@ def cruzar_listas_actas_campus(
                     )
                     col_idx = df.columns.get_loc(column)
                     writer.sheets[sheetname].set_column(col_idx, col_idx, column_length)
-    return listado_cruzado
+    return {"resumen": resumen, "listado_cruzado": listado_cruzado}
