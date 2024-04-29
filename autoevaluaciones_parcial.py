@@ -85,9 +85,27 @@ def cruzar_listas_actas_campus(
             "todas": listado_cruzado,
         }
         for comision in listado_cruzado["C"].unique():
-            dfs[f"Comision_{comision}"] = listado_cruzado[
-                listado_cruzado["C"] == comision
-            ]
+            listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
+            if len(listado_temp["habilitada/o"].unique()) > 1:
+                # Inlcuir filas vacías entre habilitados e inhabilitados
+                n_filas_vacias = 3
+                listado_temp = pd.concat(
+                    [
+                        listado_temp.loc[listado_temp["habilitada/o"]],
+                        pd.DataFrame(
+                            np.nan,
+                            index=pd.RangeIndex(n_filas_vacias),
+                            columns=listado_temp.columns,
+                        ),
+                        listado_temp.loc[~listado_temp["habilitada/o"]],
+                    ],
+                    ignore_index=True,
+                    axis=0,
+                )
+                listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
+                    {1: True, 0: False}
+                )
+            dfs[f"Comision_{comision}"] = listado_temp
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         with pd.ExcelWriter(
             f"listado_habilidados_{date.today()}.xlsx", engine="xlsxwriter"
