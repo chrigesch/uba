@@ -10,6 +10,7 @@ def cruzar_listas_actas_campus(
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2],
     crear_excel: bool,
+    mostar_duplicados_campus: bool = False,
 ) -> dict:
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
     listado_campus = listado_campus.iloc[:, :-1]
@@ -39,7 +40,8 @@ def cruzar_listas_actas_campus(
                 if fila != lista_temp["n_nan"].idxmin()
             ]
             listado_campus = listado_campus.drop(filas_a_eliminar, axis=0)
-            print(lista_temp)
+            if mostar_duplicados_campus:
+                print(lista_temp)
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
@@ -83,9 +85,27 @@ def cruzar_listas_actas_campus(
             "todas": listado_cruzado,
         }
         for comision in listado_cruzado["C"].unique():
-            dfs[f"Comision_{comision}"] = listado_cruzado[
-                listado_cruzado["C"] == comision
-            ]
+            listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
+            if len(listado_temp["habilitada/o"].unique()) > 1:
+                # Inlcuir filas vacías entre habilitados e inhabilitados
+                n_filas_vacias = 3
+                listado_temp = pd.concat(
+                    [
+                        listado_temp.loc[listado_temp["habilitada/o"]],
+                        pd.DataFrame(
+                            np.nan,
+                            index=pd.RangeIndex(n_filas_vacias),
+                            columns=listado_temp.columns,
+                        ),
+                        listado_temp.loc[~listado_temp["habilitada/o"]],
+                    ],
+                    ignore_index=True,
+                    axis=0,
+                )
+                listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
+                    {1: True, 0: False}
+                )
+            dfs[f"Comision_{comision}"] = listado_temp
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         with pd.ExcelWriter(
             f"listado_habilidados_{date.today()}.xlsx", engine="xlsxwriter"
