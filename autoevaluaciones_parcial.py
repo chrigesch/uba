@@ -10,6 +10,7 @@ def cruzar_listas_actas_campus(
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2],
     crear_excel: bool,
+    mostar_duplicados_campus: bool = False,
 ) -> dict:
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
     listado_campus = listado_campus.iloc[:, :-1]
@@ -39,7 +40,8 @@ def cruzar_listas_actas_campus(
                 if fila != lista_temp["n_nan"].idxmin()
             ]
             listado_campus = listado_campus.drop(filas_a_eliminar, axis=0)
-            print(lista_temp)
+            if mostar_duplicados_campus:
+                print(lista_temp)
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
