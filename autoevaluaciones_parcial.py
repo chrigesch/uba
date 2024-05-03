@@ -108,7 +108,7 @@ def cruzar_listas_actas_campus(
             dfs[f"Comision_{comision}"] = listado_temp
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         with pd.ExcelWriter(
-            f"listado_habilidados_{date.today()}.xlsx", engine="xlsxwriter"
+            f"listado_habilitados_{date.today()}.xlsx", engine="xlsxwriter"
         ) as writer:
             for sheetname, df in dfs.items():
                 df.to_excel(writer, sheet_name=sheetname, index=False)
