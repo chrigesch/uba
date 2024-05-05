@@ -41,7 +41,7 @@ def cruzar_listas_actas_campus(
             ]
             listado_campus = listado_campus.drop(filas_a_eliminar, axis=0)
             if mostar_duplicados_campus:
-                print(lista_temp)
+                print(lista_temp.to_string())
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
