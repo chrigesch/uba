@@ -10,6 +10,8 @@ def cruzar_listas_actas_campus(
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2],
     crear_excel: bool,
+    mostar_alumnos_no_encontrados: bool = False,
+    mostar_alumnos_corregidos: bool = False,
     mostar_duplicados_campus: bool = False,
 ) -> dict:
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
@@ -23,6 +25,30 @@ def cruzar_listas_actas_campus(
     listado_campus[cols_autoevaluaciones] = listado_campus[
         cols_autoevaluaciones
     ].replace({"-": np.nan})
+    # Determinar cuáles DNIs están en el listado del campus, pero no en el listado de actas
+    dni_no_encontrados = listado_campus.copy()[
+        ~listado_campus["Número de ID"].isin(listado_actas["Dni"])
+    ]
+    if mostar_alumnos_no_encontrados:
+        print(f"Alumnos no encontrados:\n{23 * '*'}\n{dni_no_encontrados.to_string()}")
+    # Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
+    dni_corregido = []
+    for dni in dni_no_encontrados["Número de ID"].unique():
+        correo = dni_no_encontrados[dni_no_encontrados["Número de ID"] == dni][
+            "Dirección de correo"
+        ]
+        dni_correcto = listado_actas[listado_actas["e-mail"].isin(correo)]["Dni"]
+        if len(dni_correcto) > 0:
+            dni_corregido.append(dni_correcto.iloc[0])
+            idx_a_corregir = listado_campus.index[
+                listado_campus["Número de ID"] == dni
+            ].tolist()
+            for idx_ in idx_a_corregir:
+                listado_campus.at[idx_, "Número de ID"] = dni_correcto.iloc[0]
+    if mostar_alumnos_corregidos:
+        print(
+            f"Alumnos corregidos:\n{19 * '*'}\n{listado_campus[listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
+        )
     # Determinar alumnos duplicados en el listado del campus
     dni_alumnos_duplicados = listado_campus["Número de ID"].value_counts()
     dni_alumnos_duplicados = dni_alumnos_duplicados[
