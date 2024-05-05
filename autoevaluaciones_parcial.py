@@ -66,8 +66,10 @@ def cruzar_listas_actas_campus(
                 if fila != lista_temp["n_nan"].idxmin()
             ]
             listado_campus = listado_campus.drop(filas_a_eliminar, axis=0)
-            if mostar_duplicados_campus:
-                print(f"Alumnos duplicados:\n{19 * '*'}\n{lista_temp.to_string()}")
+    if mostar_duplicados_campus:
+        print(
+            f"Alumnos duplicados:\n{19 * '*'}\n{listado_campus[listado_campus['Número de ID'].isin(dni_alumnos_duplicados)].to_string()}"  # noqa E501
+        )
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
