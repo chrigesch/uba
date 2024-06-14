@@ -8,7 +8,7 @@ import xlsxwriter  # noqa F401
 def cruzar_listas_actas_campus(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
-    parcial: Literal[1, 2],
+    parcial: Literal[1, 2, "notas"],
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
@@ -20,11 +20,14 @@ def cruzar_listas_actas_campus(
         cols_autoevaluaciones = ["au_1", "au_2", "au_3_p1", "au_3_p2"]
     elif parcial == 2:
         cols_autoevaluaciones = ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"]
-
-    listado_campus.columns.values[-4:] = cols_autoevaluaciones
+    elif parcial == "notas":
+        cols_autoevaluaciones = ["parcial_1", "parcial_2"]
+    listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
+        cols_autoevaluaciones
+    )
     listado_campus[cols_autoevaluaciones] = listado_campus[
         cols_autoevaluaciones
-    ].replace({"-": np.nan})
+    ].replace({"-": np.nan, "Ausente": np.nan})
     # Determinar cuáles DNIs están en el listado del campus, pero no en el listado de actas
     dni_no_encontrados = listado_campus.copy()[
         ~listado_campus["Número de ID"].isin(listado_actas["Dni"])
@@ -82,61 +85,81 @@ def cruzar_listas_actas_campus(
     for col in cols_autoevaluaciones:
         cols_listado_cruzado.append(col)
     listado_cruzado = listado_cruzado[cols_listado_cruzado]
-    # Determinar alumnos inhabilitados
-    listado_cruzado["habilitada/o"] = (
-        listado_cruzado[cols_autoevaluaciones].notna().all(axis=1)
-    )
-    listado_cruzado = listado_cruzado.sort_values(
-        by=["C", "habilitada/o", "AyN"], ascending=[True, False, True]
-    ).reset_index(drop=True)
-    # Crear el resumen de todas las comisiones
-    resumen = (
-        listado_cruzado[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
-    )
-    resumen["total"] = resumen.sum(axis=1)
-    resumen.loc["total"] = resumen.sum(axis=0)
-    try:
-        resumen = resumen[[True, False, "total"]].rename(
-            columns={True: "habilitados", False: "inhabilitados"}
+
+    # Crear "resumen"
+    if parcial == "notas":
+        resumen = {"posible_recuperatorio": [True, False]}
+        for col in cols_autoevaluaciones:
+            posible_recuperatorio_falso = len(
+                listado_cruzado[listado_cruzado[col] >= 4]
+            )
+            resumen[col] = [  # type: ignore
+                len(listado_cruzado) - posible_recuperatorio_falso,
+                posible_recuperatorio_falso,
+            ]
+        resumen = pd.DataFrame(resumen)
+    else:
+        # Determinar alumnos inhabilitados
+        listado_cruzado["habilitada/o"] = (
+            listado_cruzado[cols_autoevaluaciones].notna().all(axis=1)
         )
-    except Exception:
+        listado_cruzado = listado_cruzado.sort_values(
+            by=["C", "habilitada/o", "AyN"], ascending=[True, False, True]
+        ).reset_index(drop=True)
+        # Crear el resumen de todas las comisiones
+        resumen = (
+            listado_cruzado[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
+        )
+        resumen["total"] = resumen.sum(axis=1)
+        resumen.loc["total"] = resumen.sum(axis=0)
         try:
-            resumen = resumen[[False, "total"]].rename(columns={False: "inhabilitados"})
+            resumen = resumen[[True, False, "total"]].rename(
+                columns={True: "habilitados", False: "inhabilitados"}
+            )
         except Exception:
-            resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
-    resumen = resumen.reset_index()
-    # Crear un excel con una hoja por cada comisión
+            try:
+                resumen = resumen[[False, "total"]].rename(
+                    columns={False: "inhabilitados"}
+                )
+            except Exception:
+                resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
+        resumen = resumen.reset_index()
+    # Crear un diccionario con los DataFrames para poder crear el excel
     if crear_excel:
-        # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
         dfs = {
             "resumen": resumen,
             "todas": listado_cruzado,
         }
-        for comision in listado_cruzado["C"].unique():
-            listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
-            if len(listado_temp["habilitada/o"].unique()) > 1:
-                # Inlcuir filas vacías entre habilitados e inhabilitados
-                n_filas_vacias = 3
-                listado_temp = pd.concat(
-                    [
-                        listado_temp.loc[listado_temp["habilitada/o"]],
-                        pd.DataFrame(
-                            np.nan,
-                            index=pd.RangeIndex(n_filas_vacias),
-                            columns=listado_temp.columns,
-                        ),
-                        listado_temp.loc[~listado_temp["habilitada/o"]],
-                    ],
-                    ignore_index=True,
-                    axis=0,
-                )
-                listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
-                    {1: True, 0: False}
-                )
-            dfs[f"Comision_{comision}"] = listado_temp
+        if parcial in [1, 2]:
+            # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
+            nombre_excel = "listado_habilitados_"
+            for comision in listado_cruzado["C"].unique():
+                listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
+                if len(listado_temp["habilitada/o"].unique()) > 1:
+                    # Inlcuir filas vacías entre habilitados e inhabilitados
+                    n_filas_vacias = 3
+                    listado_temp = pd.concat(
+                        [
+                            listado_temp.loc[listado_temp["habilitada/o"]],
+                            pd.DataFrame(
+                                np.nan,
+                                index=pd.RangeIndex(n_filas_vacias),
+                                columns=listado_temp.columns,
+                            ),
+                            listado_temp.loc[~listado_temp["habilitada/o"]],
+                        ],
+                        ignore_index=True,
+                        axis=0,
+                    )
+                    listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
+                        {1: True, 0: False}
+                    )
+                dfs[f"Comision_{comision}"] = listado_temp
+        else:
+            nombre_excel = "listado_notas_"
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         with pd.ExcelWriter(
-            f"listado_habilitados_{date.today()}.xlsx", engine="xlsxwriter"
+            f"{nombre_excel}{date.today()}.xlsx", engine="xlsxwriter"
         ) as writer:
             for sheetname, df in dfs.items():
                 df.to_excel(writer, sheet_name=sheetname, index=False)
