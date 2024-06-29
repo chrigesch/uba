@@ -14,6 +14,9 @@ def cruzar_listas_actas_campus(
     mostar_alumnos_corregidos: bool = False,
     mostar_duplicados_campus: bool = False,
 ) -> dict:
+    print(
+        f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
+    )
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
     listado_campus = listado_campus.iloc[:, :-1]
     if parcial == 1:
