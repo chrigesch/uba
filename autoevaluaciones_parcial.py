@@ -200,11 +200,11 @@ def cruzar_listas_actas_notas(
                 & (listado_cruzado_notas["parcial_2"] >= 7)
             )
             condicion_regular = (
-                (listado_cruzado_notas["parcial_1"].between(4, 5, inclusive="both"))
-                & (listado_cruzado_notas["parcial_2"].between(4, 7, inclusive="both"))
+                (listado_cruzado_notas["parcial_1"].between(4, 6, inclusive="both"))
+                & (listado_cruzado_notas["parcial_2"] >= 4)
             ) | (
-                (listado_cruzado_notas["parcial_1"].between(4, 7, inclusive="both"))
-                & (listado_cruzado_notas["parcial_2"].between(4, 5, inclusive="both"))
+                (listado_cruzado_notas["parcial_1"] >= 4)
+                & (listado_cruzado_notas["parcial_2"].between(4, 6, inclusive="both"))
             )
         elif cond_prom == "cond_prel_7_y_7":
             condicion_promocion = (listado_cruzado_notas["parcial_1"] >= 7) & (
@@ -222,8 +222,8 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas.loc[condicion_libre_por_nota, cond_prom] = (
             "libre_por_nota"
         )
-        listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
         listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
+        listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
 
     # Crear "resumen"
     resumen_list = []
