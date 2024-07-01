@@ -223,9 +223,6 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_actas)}")
-    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_campus)}")
-    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_cruzado_notas)}")
     # Establecer las condiciones
     posibles_condiciones_para_promocionar = [
         "cond_prel_6_y_6",
