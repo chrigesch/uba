@@ -5,7 +5,7 @@ from typing import Literal
 import xlsxwriter  # noqa F401
 
 
-def cruzar_listas_actas_campus(
+def cruzar_listas_actas_autoevaluaciones(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2, "notas", "recuperatorio"],
