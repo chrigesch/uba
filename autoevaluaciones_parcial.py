@@ -223,7 +223,9 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    print(len(listado_cruzado_notas))
+    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_actas)}")
+    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_campus)}")
+    print(f"OJOOOOOOOOOOOOOOOOOOOOO: {len(listado_cruzado_notas)}")
     # Establecer las condiciones
     posibles_condiciones_para_promocionar = [
         "cond_prel_6_y_6",
@@ -342,7 +344,7 @@ def _corregir_alumnos_duplicados_en_campus(
                 for fila in lista_temp.index.to_list()
                 if fila != lista_temp["n_nan"].idxmin()
             ]
-            listado_campus = _listado_campus.drop(filas_a_eliminar, axis=0)
+            _listado_campus = _listado_campus.drop(filas_a_eliminar, axis=0)
     if mostar_duplicados_campus:
         print(
             f"Alumnos duplicados:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_alumnos_duplicados)].to_string()}"  # noqa E501
