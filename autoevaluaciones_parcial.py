@@ -8,7 +8,7 @@ import xlsxwriter  # noqa F401
 def cruzar_listas_actas_campus(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
-    parcial: Literal[1, 2, "notas"],
+    parcial: Literal[1, 2, "notas", "recuperatorio"],
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
@@ -25,6 +25,17 @@ def cruzar_listas_actas_campus(
         cols_autoevaluaciones = ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"]
     elif parcial == "notas":
         cols_autoevaluaciones = ["parcial_1", "parcial_2"]
+    elif parcial == "recuperatorio":
+        cols_autoevaluaciones = [
+            "au_1",
+            "au_2",
+            "au_3_p1",
+            "au_3_p2",
+            "au_6_p1",
+            "au_6_p2",
+            "au_7_p1",
+            "au_7_p2",
+        ]
     listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
         cols_autoevaluaciones
     )
@@ -133,7 +144,7 @@ def cruzar_listas_actas_campus(
             "resumen": resumen,
             "todas": listado_cruzado,
         }
-        if parcial in [1, 2]:
+        if parcial in [1, 2, "recuperatorio"]:
             # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
             nombre_excel = "listado_habilitados_"
             for comision in listado_cruzado["C"].unique():
