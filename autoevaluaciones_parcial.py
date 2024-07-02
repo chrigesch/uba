@@ -111,7 +111,7 @@ def cruzar_listas_actas_autoevaluaciones(
                 )
             dfs[f"Comision_{comision}"] = listado_temp
         # Crear el excel ajustando el ancho de las columnas dinámicamente
-        _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
+        _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
 
     return {"resumen": resumen, "listado_cruzado": listado_cruzado}
 
