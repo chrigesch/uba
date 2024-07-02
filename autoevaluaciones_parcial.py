@@ -119,6 +119,7 @@ def cruzar_listas_actas_autoevaluaciones(
 def cruzar_listas_actas_notas(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
+    listado_certificados: pd.DataFrame | None,
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
@@ -153,7 +154,15 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    # Establecer las condiciones
+    # Crear placeholders para los (posibles) certificados
+    listado_cruzado_notas["certificado_valido_p1"] = False
+    listado_cruzado_notas["tipo_de_certificado_p1"] = False
+    listado_cruzado_notas["certificado_valido_p2"] = False
+    listado_cruzado_notas["tipo_de_certificado_p2"] = False
+    # Agregar los certificados
+    if listado_certificados is not None:
+        pass
+    # Establecer las condiciones (para promocionar)
     posibles_condiciones_para_promocionar = [
         "cond_prel_6_y_6",
         "cond_prel_6_y_7",
@@ -165,19 +174,27 @@ def cruzar_listas_actas_notas(
         # Crear las distintas condiciones de libre, libre_por_nota y regular
         condicion_libre = (listado_cruzado_notas["parcial_1"].isna()) & (
             listado_cruzado_notas["parcial_2"].isna()
+            & ~listado_cruzado_notas["certificado_valido_p1"]
+            & ~listado_cruzado_notas["certificado_valido_p2"]
         )
         condicion_libre_por_nota = (
             (
                 (listado_cruzado_notas["parcial_1"].isna())
                 & (listado_cruzado_notas["parcial_2"] < 4)
+                & ~listado_cruzado_notas["certificado_valido_p1"]
+                & ~listado_cruzado_notas["certificado_valido_p2"]
             )
             | (
                 (listado_cruzado_notas["parcial_1"] < 4)
                 & (listado_cruzado_notas["parcial_2"].isna())
+                & ~listado_cruzado_notas["certificado_valido_p1"]
+                & ~listado_cruzado_notas["certificado_valido_p2"]
             )
             | (
                 (listado_cruzado_notas["parcial_1"] < 4)
                 & (listado_cruzado_notas["parcial_2"] < 4)
+                & ~listado_cruzado_notas["certificado_valido_p1"]
+                & ~listado_cruzado_notas["certificado_valido_p2"]
             )
         )
         condicion_regular = (listado_cruzado_notas["parcial_1"] >= 4) & (
