@@ -156,12 +156,41 @@ def cruzar_listas_actas_notas(
     )
     # Crear placeholders para los (posibles) certificados
     listado_cruzado_notas["certificado_valido_p1"] = False
-    listado_cruzado_notas["tipo_de_certificado_p1"] = False
+    listado_cruzado_notas["tipo_de_certificado_p1"] = np.nan
     listado_cruzado_notas["certificado_valido_p2"] = False
-    listado_cruzado_notas["tipo_de_certificado_p2"] = False
+    listado_cruzado_notas["tipo_de_certificado_p2"] = np.nan
     # Agregar los certificados
     if listado_certificados is not None:
-        pass
+        print(
+            f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa E501
+        )
+        # Renombrar columnas
+        listado_certificados.columns.values[-4:] = [
+            "certificado_valido_p1",
+            "tipo_de_certificado_p1",
+            "certificado_valido_p2",
+            "tipo_de_certificado_p2",
+        ]
+        listado_cruzado_temp = pd.merge(
+            left=listado_actas,
+            right=listado_certificados,
+            how="left",
+            left_on="Dni",
+            right_on="Dni",
+        )
+        listado_cruzado_notas["certificado_valido_p1"] = np.where(
+            listado_cruzado_temp["certificado_valido_p1"] == "SI", True, False
+        )
+        listado_cruzado_notas["tipo_de_certificado_p1"] = listado_cruzado_temp[
+            "tipo_de_certificado_p1"
+        ]
+        listado_cruzado_notas["certificado_valido_p2"] = np.where(
+            listado_cruzado_temp["certificado_valido_p2"] == "SI", True, False
+        )
+        listado_cruzado_notas["tipo_de_certificado_p2"] = listado_cruzado_temp[
+            "tipo_de_certificado_p2"
+        ]
+
     # Establecer las condiciones (para promocionar)
     posibles_condiciones_para_promocionar = [
         "cond_prel_6_y_6",
