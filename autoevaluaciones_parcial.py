@@ -119,6 +119,7 @@ def cruzar_listas_actas_autoevaluaciones(
 def cruzar_listas_actas_notas(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
+    listado_certificados: pd.DataFrame | None,
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
@@ -153,6 +154,12 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
+    # Crear placeholders para los (posibles) certificados
+    listado_cruzado_notas["certificado_valido_p1"] = np.nan
+    listado_cruzado_notas["tipo_de_certificado_p1"] = np.nan
+    listado_cruzado_notas["certificado_valido_p2"] = np.nan
+    listado_cruzado_notas["tipo_de_certificado_p2"] = np.nan
+
     # Establecer las condiciones
     posibles_condiciones_para_promocionar = [
         "cond_prel_6_y_6",
