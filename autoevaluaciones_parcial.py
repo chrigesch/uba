@@ -120,6 +120,9 @@ def cruzar_listas_actas_notas(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
     listado_certificados: pd.DataFrame | None,
+    cond_promocion: Literal[
+        "cond_prom_6_y_6", "cond_prom_6_y_7", "cond_prom_7_y_7", None
+    ],
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
@@ -193,9 +196,9 @@ def cruzar_listas_actas_notas(
 
     # Establecer las condiciones (para promocionar)
     posibles_condiciones_para_promocionar = [
-        "cond_prel_6_y_6",
-        "cond_prel_6_y_7",
-        "cond_prel_7_y_7",
+        "cond_prom_6_y_6",
+        "cond_prom_6_y_7",
+        "cond_prom_7_y_7",
     ]
     for cond_prom in posibles_condiciones_para_promocionar:
         # Crear columna con "placeholder" ("pendiente")
@@ -230,11 +233,11 @@ def cruzar_listas_actas_notas(
             listado_cruzado_notas["parcial_2"] >= 4
         )
         # Crear las distintas condiciones de promoción
-        if cond_prom == "cond_prel_6_y_6":
+        if cond_prom == "cond_prom_6_y_6":
             condicion_promocion = (listado_cruzado_notas["parcial_1"] >= 6) & (
                 listado_cruzado_notas["parcial_2"] >= 6
             )
-        elif cond_prom == "cond_prel_6_y_7":
+        elif cond_prom == "cond_prom_6_y_7":
             condicion_promocion = (
                 (listado_cruzado_notas["parcial_1"] >= 7)
                 & (listado_cruzado_notas["parcial_2"] >= 6)
@@ -242,7 +245,7 @@ def cruzar_listas_actas_notas(
                 (listado_cruzado_notas["parcial_1"] >= 6)
                 & (listado_cruzado_notas["parcial_2"] >= 7)
             )
-        elif cond_prom == "cond_prel_7_y_7":
+        elif cond_prom == "cond_prom_7_y_7":
             condicion_promocion = (listado_cruzado_notas["parcial_1"] >= 7) & (
                 listado_cruzado_notas["parcial_2"] >= 7
             )
@@ -265,6 +268,22 @@ def cruzar_listas_actas_notas(
         resumen_list,
         axis=1,
     )
+    if cond_promocion is not None:
+        resumen_df = resumen_df[cond_promocion]
+        listado_cruzado_notas = listado_cruzado_notas[
+            [
+                "C",
+                "AyN",
+                "Dni",
+                "parcial_1",
+                "parcial_2",
+                "certificado_valido_p1",
+                "tipo_de_certificado_p1",
+                "certificado_valido_p2",
+                "tipo_de_certificado_p2",
+                cond_promocion,
+            ]
+        ]
     # Crear Excel
     if crear_excel:
         dfs = {
