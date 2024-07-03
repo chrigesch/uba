@@ -168,12 +168,17 @@ def cruzar_listas_actas_notas(
             f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa E501
         )
         # Renombrar columnas
-        listado_certificados.columns.values[-4:] = [
+        cols_nombres = [
             "certificado_valido_p1",
             "tipo_de_certificado_p1",
             "certificado_valido_p2",
             "tipo_de_certificado_p2",
         ]
+        listado_certificados.columns.values[-4:] = cols_nombres
+        # Convertir contenido de estas columnas en minúscula
+        for col in cols_nombres:
+            listado_certificados[col] = listado_certificados[col].str.lower()
+        # Cruzar las listas
         listado_cruzado_temp = pd.merge(
             left=listado_actas,
             right=listado_certificados,
@@ -181,18 +186,13 @@ def cruzar_listas_actas_notas(
             left_on="Dni",
             right_on="Dni",
         )
-        listado_cruzado_notas["certificado_valido_p1"] = np.where(
-            listado_cruzado_temp["certificado_valido_p1"] == "SI", True, False
-        )
-        listado_cruzado_notas["tipo_de_certificado_p1"] = listado_cruzado_temp[
-            "tipo_de_certificado_p1"
-        ]
-        listado_cruzado_notas["certificado_valido_p2"] = np.where(
-            listado_cruzado_temp["certificado_valido_p2"] == "SI", True, False
-        )
-        listado_cruzado_notas["tipo_de_certificado_p2"] = listado_cruzado_temp[
-            "tipo_de_certificado_p2"
-        ]
+        # Introducir contenido del listado_cruzado_temp en listado_cruzado_notas
+        for col in ["certificado_valido_p1", "certificado_valido_p2"]:
+            listado_cruzado_notas[col] = np.where(
+                listado_cruzado_temp[col] == "si", True, False
+            )
+        for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
+            listado_cruzado_notas[col] = listado_cruzado_temp[col]
 
     # Establecer las condiciones (para promocionar)
     posibles_condiciones_para_promocionar = [
