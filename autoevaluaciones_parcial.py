@@ -275,23 +275,24 @@ def cruzar_listas_actas_notas(
         choicelist=[np.nan, 2],
         default=1,
     )
-
     # Agregamos columna para indicar si es diferido
-
+    listado_cruzado_notas["diferido"] = np.where(
+        listado_cruzado_notas["certificado_valido_p1"]
+        & listado_cruzado_notas["certificado_valido_p2"],
+        True,
+        False,
+    )
     # Crear "resumen"
     resumen_list = []
     for cond_prom in posibles_condiciones_para_promocionar:
         resumen_list.append(
             listado_cruzado_notas[cond_prom].value_counts().rename(cond_prom)
         )
-    resumen_df = pd.concat(
-        resumen_list,
-        axis=1,
-    )
+    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
     # Crear Excel
     if crear_excel:
         dfs = {
-            "resumen": resumen_df.reset_index(),
+            "resumen": resumen_df,
             "todas": listado_cruzado_notas,
         }
         _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
