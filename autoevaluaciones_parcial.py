@@ -195,11 +195,14 @@ def cruzar_listas_actas_notas(
             listado_cruzado_notas[col] = listado_cruzado_temp[col]
 
     # Establecer las condiciones (para promocionar)
-    posibles_condiciones_para_promocionar = [
-        "cond_prom_6_y_6",
-        "cond_prom_6_y_7",
-        "cond_prom_7_y_7",
-    ]
+    if cond_promocion is None:
+        posibles_condiciones_para_promocionar = [
+            "cond_prom_6_y_6",
+            "cond_prom_6_y_7",
+            "cond_prom_7_y_7",
+        ]
+    else:
+        posibles_condiciones_para_promocionar = [cond_promocion]
     for cond_prom in posibles_condiciones_para_promocionar:
         # Crear columna con "placeholder" ("pendiente")
         listado_cruzado_notas[cond_prom] = "pendiente"
@@ -268,22 +271,6 @@ def cruzar_listas_actas_notas(
         resumen_list,
         axis=1,
     )
-    if cond_promocion is not None:
-        resumen_df = resumen_df[cond_promocion]
-        listado_cruzado_notas = listado_cruzado_notas[
-            [
-                "C",
-                "AyN",
-                "Dni",
-                "parcial_1",
-                "parcial_2",
-                "certificado_valido_p1",
-                "tipo_de_certificado_p1",
-                "certificado_valido_p2",
-                "tipo_de_certificado_p2",
-                cond_promocion,
-            ]
-        ]
     # Crear Excel
     if crear_excel:
         dfs = {
