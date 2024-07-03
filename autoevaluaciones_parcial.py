@@ -260,6 +260,23 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
         # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
         listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
+    # Agregamos columna para indicar cuál parcial debe recuperar
+    listado_cruzado_notas["recuperatorio"] = np.select(
+        condlist=[
+            listado_cruzado_notas.iloc[:, -1] != "pendiente",
+            (
+                (listado_cruzado_notas.iloc[:, -1] == "pendiente")
+                & (
+                    (listado_cruzado_notas["parcial_2"] < 4)
+                    | (listado_cruzado_notas["parcial_2"].isna())
+                )
+            ),
+        ],
+        choicelist=[np.nan, 2],
+        default=1,
+    )
+
+    # Agregamos columna para indicar si es diferido
 
     # Crear "resumen"
     resumen_list = []
