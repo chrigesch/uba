@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from typing import Literal
@@ -260,21 +260,39 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
         # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
         listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
-
+    # Agregamos columna para indicar cuál parcial debe recuperar
+    listado_cruzado_notas["recuperatorio"] = np.select(
+        condlist=[
+            listado_cruzado_notas.iloc[:, -1] != "pendiente",
+            (
+                (listado_cruzado_notas.iloc[:, -1] == "pendiente")
+                & (
+                    (listado_cruzado_notas["parcial_2"] < 4)
+                    | (listado_cruzado_notas["parcial_2"].isna())
+                )
+            ),
+        ],
+        choicelist=[np.nan, 2],
+        default=1,
+    )
+    # Agregamos columna para indicar si es diferido
+    listado_cruzado_notas["diferido"] = np.where(
+        listado_cruzado_notas["certificado_valido_p1"]
+        & listado_cruzado_notas["certificado_valido_p2"],
+        True,
+        False,
+    )
     # Crear "resumen"
     resumen_list = []
     for cond_prom in posibles_condiciones_para_promocionar:
         resumen_list.append(
             listado_cruzado_notas[cond_prom].value_counts().rename(cond_prom)
         )
-    resumen_df = pd.concat(
-        resumen_list,
-        axis=1,
-    )
+    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
     # Crear Excel
     if crear_excel:
         dfs = {
-            "resumen": resumen_df.reset_index(),
+            "resumen": resumen_df,
             "todas": listado_cruzado_notas,
         }
         _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
@@ -354,7 +372,7 @@ def _crear_excel(
 ):
     # Crear el excel ajustando el ancho de las columnas dinámicamente
     with pd.ExcelWriter(
-        f"{nombre_excel}{date.today()}.xlsx", engine="xlsxwriter"
+        f"{nombre_excel}{datetime.now()}.xlsx", engine="xlsxwriter"
     ) as writer:
         for sheetname, df in dfs.items():
             df.to_excel(writer, sheet_name=sheetname, index=False)
