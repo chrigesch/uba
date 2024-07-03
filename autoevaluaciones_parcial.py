@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 import numpy as np
 import pandas as pd
 from typing import Literal
@@ -372,7 +372,7 @@ def _crear_excel(
 ):
     # Crear el excel ajustando el ancho de las columnas dinámicamente
     with pd.ExcelWriter(
-        f"{nombre_excel}{date.today()}.xlsx", engine="xlsxwriter"
+        f"{nombre_excel}{datetime.now()}.xlsx", engine="xlsxwriter"
     ) as writer:
         for sheetname, df in dfs.items():
             df.to_excel(writer, sheet_name=sheetname, index=False)
