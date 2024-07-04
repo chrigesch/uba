@@ -297,6 +297,7 @@ def cruzar_listas_actas_notas(
         choicelist=[np.nan, 2],
         default=1,
     )
+    # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
     if condicion == "final":
         listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
             _calcular_promedio, axis=1
