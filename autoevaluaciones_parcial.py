@@ -123,17 +123,28 @@ def cruzar_listas_actas_notas(
     cond_promocion: Literal[
         "cond_prom_6_y_6", "cond_prom_6_y_7", "cond_prom_7_y_7", None
     ],
+    condicion: Literal["preliminar", "final"],
     crear_excel: bool,
     mostar_alumnos_no_encontrados: bool = False,
     mostar_alumnos_corregidos: bool = False,
     mostar_duplicados_campus: bool = False,
 ) -> dict:
+    if condicion == "final":
+        assert (
+            cond_promocion is not None
+        ), "Si es para condiciones finales, debe elegirse una condición de promoción."
+        assert (
+            listado_certificados is not None
+        ), "Si es para condiciones finales, debe aportarse listado_certificados."
     print(
         f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
     )
     # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
     listado_campus = listado_campus.iloc[:, :-1]
-    cols_autoevaluaciones = ["parcial_1", "parcial_2"]
+    if condicion == "preliminar":
+        cols_autoevaluaciones = ["parcial_1", "parcial_2"]
+    elif condicion == "final":
+        cols_autoevaluaciones = ["parcial_1", "parcial_2", "nota_recuperatorio"]
     listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
         cols_autoevaluaciones
     )
@@ -194,6 +205,13 @@ def cruzar_listas_actas_notas(
         for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
             listado_cruzado_notas[col] = listado_cruzado_temp[col]
 
+    # Agregamos columna para indicar si es diferido
+    listado_cruzado_notas["diferido"] = np.where(
+        listado_cruzado_notas["certificado_valido_p1"]
+        | listado_cruzado_notas["certificado_valido_p2"],
+        True,
+        False,
+    )
     # Establecer las condiciones (para promocionar)
     if cond_promocion is None:
         posibles_condiciones_para_promocionar = [
@@ -203,61 +221,65 @@ def cruzar_listas_actas_notas(
         ]
     else:
         posibles_condiciones_para_promocionar = [cond_promocion]
+    # Crear variables para ahorrar espacio a la hora de determinar las condiciones
+    p1, p2, cert1, cert2, pos_dif = (
+        listado_cruzado_notas["parcial_1"],
+        listado_cruzado_notas["parcial_2"],
+        listado_cruzado_notas["certificado_valido_p1"],
+        listado_cruzado_notas["certificado_valido_p2"],
+        listado_cruzado_notas["diferido"],
+    )
+    if condicion == "final":
+        rec = listado_cruzado_notas["nota_recuperatorio"]
+
     for cond_prom in posibles_condiciones_para_promocionar:
         # Crear columna con "placeholder" ("pendiente")
         listado_cruzado_notas[cond_prom] = "pendiente"
         # Crear las distintas condiciones de libre, libre_por_nota y regular
-        condicion_libre = (listado_cruzado_notas["parcial_1"].isna()) & (
-            listado_cruzado_notas["parcial_2"].isna()
-            & ~listado_cruzado_notas["certificado_valido_p1"]
-            & ~listado_cruzado_notas["certificado_valido_p2"]
-        )
-        condicion_libre_por_nota = (
-            (
-                (listado_cruzado_notas["parcial_1"].isna())
-                & (listado_cruzado_notas["parcial_2"] < 4)
-                & ~listado_cruzado_notas["certificado_valido_p1"]
-                & ~listado_cruzado_notas["certificado_valido_p2"]
+        if condicion == "preliminar":
+            condicion_libre = (p1.isna()) & (p2.isna() & ~cert1 & ~cert2)
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2.isna()) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2 < 4) & ~cert1 & ~cert2)
             )
-            | (
-                (listado_cruzado_notas["parcial_1"] < 4)
-                & (listado_cruzado_notas["parcial_2"].isna())
-                & ~listado_cruzado_notas["certificado_valido_p1"]
-                & ~listado_cruzado_notas["certificado_valido_p2"]
+            condicion_regular = (p1 >= 4) & (p2 >= 4)
+        elif condicion == "final":
+            condicion_libre = (
+                ((p1.isna()) & (p2.isna()))
+                | ((p1 >= 4) & (p2.isna()) & (rec.isna()))
+                | ((p1.isna()) & (p2 >= 4) & (rec.isna()))
             )
-            | (
-                (listado_cruzado_notas["parcial_1"] < 4)
-                & (listado_cruzado_notas["parcial_2"] < 4)
-                & ~listado_cruzado_notas["certificado_valido_p1"]
-                & ~listado_cruzado_notas["certificado_valido_p2"]
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4))
+                | ((p1 < 4) & (p2.isna()))
+                | ((p1 < 4) & (p2 < 4))
+                | ((p1 >= 4) & (p2 < 4) & (rec.isna()))
+                | ((p1 < 4) & (p2 >= 4) & (rec.isna()))
+                | (rec < 4)
             )
-        )
-        condicion_regular = (listado_cruzado_notas["parcial_1"] >= 4) & (
-            listado_cruzado_notas["parcial_2"] >= 4
-        )
+            condicion_regular = (
+                ((p1 >= 4) & (p2 >= 4))
+                | ((p1 >= 4) & (p2 < 4) & (rec >= 4))
+                | ((p1 < 4) & (p2 >= 4) & (rec >= 4))
+            )
+            condicion_dif = pos_dif & (rec >= 4)
+
         # Crear las distintas condiciones de promoción
         if cond_prom == "cond_prom_6_y_6":
-            condicion_promocion = (listado_cruzado_notas["parcial_1"] >= 6) & (
-                listado_cruzado_notas["parcial_2"] >= 6
-            )
+            condicion_promocion = (p1 >= 6) & (p2 >= 6)
         elif cond_prom == "cond_prom_6_y_7":
-            condicion_promocion = (
-                (listado_cruzado_notas["parcial_1"] >= 7)
-                & (listado_cruzado_notas["parcial_2"] >= 6)
-            ) | (
-                (listado_cruzado_notas["parcial_1"] >= 6)
-                & (listado_cruzado_notas["parcial_2"] >= 7)
-            )
+            condicion_promocion = ((p1 >= 7) & (p2 >= 6)) | ((p1 >= 6) & (p2 >= 7))
         elif cond_prom == "cond_prom_7_y_7":
-            condicion_promocion = (listado_cruzado_notas["parcial_1"] >= 7) & (
-                listado_cruzado_notas["parcial_2"] >= 7
-            )
+            condicion_promocion = (p1 >= 7) & (p2 >= 7)
 
         listado_cruzado_notas.loc[condicion_libre, cond_prom] = "libre"
         listado_cruzado_notas.loc[condicion_libre_por_nota, cond_prom] = (
             "libre_por_nota"
         )
         listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
+        if condicion == "final":
+            listado_cruzado_notas.loc[condicion_dif, cond_prom] = "diferido"
         # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
         listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
     # Agregamos columna para indicar cuál parcial debe recuperar
@@ -275,13 +297,13 @@ def cruzar_listas_actas_notas(
         choicelist=[np.nan, 2],
         default=1,
     )
-    # Agregamos columna para indicar si es diferido
-    listado_cruzado_notas["diferido"] = np.where(
-        listado_cruzado_notas["certificado_valido_p1"]
-        | listado_cruzado_notas["certificado_valido_p2"],
-        True,
-        False,
-    )
+    if condicion == "final":
+        listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
+            _calcular_promedio, axis=1
+        )
+        listado_cruzado_notas = listado_cruzado_notas.rename(
+            columns={cond_promocion: "condicion"}
+        )
     # Crear "resumen"
     resumen_list = []
     for cond_prom in posibles_condiciones_para_promocionar:
@@ -300,6 +322,43 @@ def cruzar_listas_actas_notas(
         "resumen": resumen_df,
         "listado_cruzado": listado_cruzado_notas,
     }
+
+
+def _calcular_promedio(row):
+    p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
+
+    if pd.notna(p1) and pd.notna(p2) and 4 <= p1 <= 10 and 4 <= p2 <= 10:
+        return (p1 + p2) / 2
+    elif p1 > 3 and pd.notna(rec) and rec > 3:
+        return (p1 + rec) / 2
+    elif p2 > 3 and pd.notna(rec) and rec > 3:
+        return (p2 + rec) / 2
+    elif p1 < 4 and p2 < 4 and p1 <= p2:
+        return p2
+    elif p1 < 4 and p2 < 4 and p1 >= p2:
+        return p1
+    elif p1 < 4 and p2 > 3 and pd.isna(rec):
+        return p1
+    elif p1 > 3 and p2 < 4 and pd.isna(rec):
+        return p2
+    elif p1 < 4 and rec < 4 and p1 >= rec:
+        return p1
+    elif p1 < 4 and rec < 4 and p1 <= rec:
+        return rec
+    elif p2 < 4 and rec < 4 and p2 >= rec:
+        return p2
+    elif p2 < 4 and rec < 4 and p2 <= rec:
+        return rec
+    elif p1 > 3 and pd.isna(p2) and rec < 4:
+        return rec
+    elif pd.isna(p1) and p2 > 3 and rec < 4:
+        return rec
+    elif p1 < 4 and pd.isna(p2) and pd.isna(rec):
+        return p1
+    elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
+        return p2
+    else:
+        return np.nan
 
 
 def _corregir_alumnos_duplicados_en_campus(
