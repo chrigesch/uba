@@ -278,7 +278,7 @@ def cruzar_listas_actas_notas(
     # Agregamos columna para indicar si es diferido
     listado_cruzado_notas["diferido"] = np.where(
         listado_cruzado_notas["certificado_valido_p1"]
-        & listado_cruzado_notas["certificado_valido_p2"],
+        | listado_cruzado_notas["certificado_valido_p2"],
         True,
         False,
     )
