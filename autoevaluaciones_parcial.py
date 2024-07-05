@@ -263,9 +263,9 @@ def cruzar_listas_actas_notas(
                 | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
                 | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
             )
-            condicion_dif = (pos_dif & (rec >= 4) & (p1 < 4)) | (
-                pos_dif & (rec >= 4) & (p2 < 4)
-            )
+            condicion_pendiente = (
+                pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4)))
+            ) | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
 
         # Crear las distintas condiciones de promoción
         if cond_prom == "cond_prom_6_y_6":
@@ -294,7 +294,7 @@ def cruzar_listas_actas_notas(
         )
         listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
         if condicion == "final":
-            listado_cruzado_notas.loc[condicion_dif, cond_prom] = "diferido"
+            listado_cruzado_notas.loc[condicion_pendiente, cond_prom] = "pendiente"
         # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
         listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
     # Agregamos columna para indicar cuál parcial debe recuperar
