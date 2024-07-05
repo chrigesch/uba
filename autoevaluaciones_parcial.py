@@ -260,10 +260,12 @@ def cruzar_listas_actas_notas(
             )
             condicion_regular = (
                 ((p1 >= 4) & (p2 >= 4))
-                | ((p1 >= 4) & (p2 < 4) & (rec >= 4))
-                | ((p1 < 4) & (p2 >= 4) & (rec >= 4))
+                | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
+                | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
             )
-            condicion_dif = pos_dif & (rec >= 4)
+            condicion_dif = (pos_dif & (rec >= 4) & (p1 < 4)) | (
+                pos_dif & (rec >= 4) & (p2 < 4)
+            )
 
         # Crear las distintas condiciones de promoción
         if cond_prom == "cond_prom_6_y_6":
@@ -297,14 +299,6 @@ def cruzar_listas_actas_notas(
         choicelist=[np.nan, 2],
         default=1,
     )
-    # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
-    if condicion == "final":
-        listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
-            _calcular_promedio, axis=1
-        )
-        listado_cruzado_notas = listado_cruzado_notas.rename(
-            columns={cond_promocion: "condicion"}
-        )
     # Crear "resumen"
     resumen_list = []
     for cond_prom in posibles_condiciones_para_promocionar:
@@ -312,6 +306,18 @@ def cruzar_listas_actas_notas(
             listado_cruzado_notas[cond_prom].value_counts().rename(cond_prom)
         )
     resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
+    # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
+    if condicion == "final":
+        listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
+            _calcular_promedio, axis=1
+        )
+        # Redondear (pandas redondea 0.5 para arriba -> ajuste del +0.05)
+        listado_cruzado_notas["promedio"] = (
+            listado_cruzado_notas["promedio"] + 0.05
+        ).round()
+        listado_cruzado_notas = listado_cruzado_notas.rename(
+            columns={cond_promocion: "condicion"}
+        )
     # Crear Excel
     if crear_excel:
         dfs = {
