@@ -269,11 +269,24 @@ def cruzar_listas_actas_notas(
 
         # Crear las distintas condiciones de promoción
         if cond_prom == "cond_prom_6_y_6":
-            condicion_promocion = (p1 >= 6) & (p2 >= 6)
+            condicion_promocion = (
+                ((p1 >= 6) & (p2 >= 6))
+                | (cert1 & (p2 >= 6) & (rec >= 6))
+                | (cert2 & (p1 >= 6) & (rec >= 6))
+            )
         elif cond_prom == "cond_prom_6_y_7":
-            condicion_promocion = ((p1 >= 7) & (p2 >= 6)) | ((p1 >= 6) & (p2 >= 7))
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 6))
+                | ((p1 >= 6) & (p2 >= 7))
+                | (cert1 & (((p2 >= 7) & (rec >= 6)) | ((p2 >= 6) & (rec >= 7))))
+                | (cert2 & (((p1 >= 7) & (rec >= 6)) | ((p1 >= 6) & (rec >= 7))))
+            )
         elif cond_prom == "cond_prom_7_y_7":
-            condicion_promocion = (p1 >= 7) & (p2 >= 7)
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 7))
+                | (cert1 & (p2 >= 7) & (rec >= 7))
+                | (cert2 & (p1 >= 7) & (rec >= 7))
+            )
 
         listado_cruzado_notas.loc[condicion_libre, cond_prom] = "libre"
         listado_cruzado_notas.loc[condicion_libre_por_nota, cond_prom] = (
