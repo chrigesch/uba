@@ -10,9 +10,9 @@ def cruzar_listas_actas_autoevaluaciones(
     listado_campus: pd.DataFrame,
     parcial: Literal[1, 2, "recuperatorio"],
     crear_excel: bool,
-    mostar_alumnos_no_encontrados: bool = False,
-    mostar_alumnos_corregidos: bool = False,
-    mostar_duplicados_campus: bool = False,
+    mostrar_alumnos_no_encontrados: bool = False,
+    mostrar_alumnos_corregidos: bool = False,
+    mostrar_duplicados_campus: bool = False,
 ) -> dict:
     print(
         f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
@@ -44,13 +44,13 @@ def cruzar_listas_actas_autoevaluaciones(
     listado_campus = _corregir_dni_en_listado_campus(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
-        mostar_alumnos_no_encontrados=mostar_alumnos_no_encontrados,
-        mostar_alumnos_corregidos=mostar_alumnos_corregidos,
+        mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
+        mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
     )
     listado_campus = _corregir_alumnos_duplicados_en_campus(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
-        mostar_duplicados_campus=mostar_duplicados_campus,
+        mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado = _crear_listado_cruzado(
         listado_actas=listado_actas,
@@ -125,9 +125,9 @@ def cruzar_listas_actas_notas(
     ],
     condicion: Literal["preliminar", "final"],
     crear_excel: bool,
-    mostar_alumnos_no_encontrados: bool = False,
-    mostar_alumnos_corregidos: bool = False,
-    mostar_duplicados_campus: bool = False,
+    mostrar_alumnos_no_encontrados: bool = False,
+    mostrar_alumnos_corregidos: bool = False,
+    mostrar_duplicados_campus: bool = False,
 ) -> dict:
     if condicion == "final":
         assert (
@@ -155,13 +155,13 @@ def cruzar_listas_actas_notas(
     listado_campus = _corregir_dni_en_listado_campus(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
-        mostar_alumnos_no_encontrados=mostar_alumnos_no_encontrados,
-        mostar_alumnos_corregidos=mostar_alumnos_corregidos,
+        mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
+        mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
     )
     listado_campus = _corregir_alumnos_duplicados_en_campus(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
-        mostar_duplicados_campus=mostar_duplicados_campus,
+        mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado_notas = _crear_listado_cruzado(
         listado_actas=listado_actas,
@@ -384,7 +384,7 @@ def _calcular_promedio(row):
 def _corregir_alumnos_duplicados_en_campus(
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list,
-    mostar_duplicados_campus: bool,
+    mostrar_duplicados_campus: bool,
 ) -> pd.DataFrame:
     _listado_campus = listado_campus.copy(deep=True)
     # Determinar alumnos duplicados en el listado del campus
@@ -404,7 +404,7 @@ def _corregir_alumnos_duplicados_en_campus(
                 if fila != lista_temp["n_nan"].idxmin()
             ]
             _listado_campus = _listado_campus.drop(filas_a_eliminar, axis=0)
-    if mostar_duplicados_campus:
+    if mostrar_duplicados_campus:
         print(
             f"Alumnos duplicados:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_alumnos_duplicados)].to_string()}"  # noqa E501
         )
@@ -414,15 +414,15 @@ def _corregir_alumnos_duplicados_en_campus(
 def _corregir_dni_en_listado_campus(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
-    mostar_alumnos_no_encontrados: bool,
-    mostar_alumnos_corregidos: bool,
+    mostrar_alumnos_no_encontrados: bool,
+    mostrar_alumnos_corregidos: bool,
 ) -> pd.DataFrame:
     # Determinar cuáles DNIs están en el listado del campus, pero no en el listado de actas
     _listado_campus = listado_campus.copy(deep=True)
     dni_no_encontrados = listado_campus.copy()[
         ~_listado_campus["Número de ID"].isin(listado_actas["Dni"])
     ]
-    if mostar_alumnos_no_encontrados:
+    if mostrar_alumnos_no_encontrados:
         print(f"Alumnos no encontrados:\n{23 * '*'}\n{dni_no_encontrados.to_string()}")
     # Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
     dni_corregido = []
@@ -438,7 +438,7 @@ def _corregir_dni_en_listado_campus(
             ].tolist()
             for idx_ in idx_a_corregir:
                 _listado_campus.at[idx_, "Número de ID"] = dni_correcto.iloc[0]
-    if mostar_alumnos_corregidos:
+    if mostrar_alumnos_corregidos:
         print(
             f"Alumnos corregidos:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
         )
