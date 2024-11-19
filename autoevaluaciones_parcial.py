@@ -231,6 +231,8 @@ def cruzar_listas_actas_notas(
     )
     if condicion == "final":
         rec = listado_cruzado_notas["nota_recuperatorio"]
+    elif condicion == "preliminar":
+        rec = pd.Series([np.nan] * len(listado_cruzado_notas))
 
     for cond_prom in posibles_condiciones_para_promocionar:
         # Crear columna con "placeholder" ("pendiente")
