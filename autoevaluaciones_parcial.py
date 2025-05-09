@@ -429,18 +429,18 @@ def _corregir_dni_en_listado_campus(
 
     # (1) Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
     dni_corregido = []
-    for dni in dni_no_encontrados["Número de ID"].unique():
-        correo = dni_no_encontrados[dni_no_encontrados["Número de ID"] == dni][
-            "Dirección de correo"
-        ]
-        dni_correcto = listado_actas[listado_actas["e-mail"].isin(correo)]["Dni"]
-        if len(dni_correcto) > 0:
-            dni_corregido.append(dni_correcto.iloc[0])
-            idx_a_corregir = _listado_campus.index[
-                _listado_campus["Número de ID"] == dni
-            ].tolist()
-            for idx_ in idx_a_corregir:
-                _listado_campus.at[idx_, "Número de ID"] = dni_correcto.iloc[0]
+    # Crear un diccionario {correo: dni_correcto} para búsqueda rápida
+    correo_a_dni = dict(zip(listado_actas["e-mail"], listado_actas["Dni"]))
+    # Iterar por filas en lugar de hacer múltiples filtrados
+    for idx, row in dni_no_encontrados.drop_duplicates("Número de ID").iterrows():
+        dni_actual = row["Número de ID"]
+        correo = row["Dirección de correo"]
+        dni_correcto = correo_a_dni.get(correo)
+
+        if dni_correcto:
+            dni_corregido.append(dni_correcto)
+            mask = _listado_campus["Número de ID"] == dni_actual
+            _listado_campus.loc[mask, "Número de ID"] = dni_correcto
 
     # (2) A los que no fueron corregidos con la dirección de correo, comprobar si el DNI tiene un dígito de más y eliminar el último # noqa E501
     # Asegurarse de que los valores sean strings
