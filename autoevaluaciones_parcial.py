@@ -426,7 +426,8 @@ def _corregir_dni_en_listado_campus(
     ]
     if mostrar_alumnos_no_encontrados:
         print(f"Alumnos no encontrados:\n{23 * '*'}\n{dni_no_encontrados.to_string()}")
-    # Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
+
+    # (1) Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
     dni_corregido = []
     for dni in dni_no_encontrados["Número de ID"].unique():
         correo = dni_no_encontrados[dni_no_encontrados["Número de ID"] == dni][
@@ -440,6 +441,26 @@ def _corregir_dni_en_listado_campus(
             ].tolist()
             for idx_ in idx_a_corregir:
                 _listado_campus.at[idx_, "Número de ID"] = dni_correcto.iloc[0]
+
+    # (2) A los que no fueron corregidos con la dirección de correo, comprobar si el DNI tiene un dígito de más y eliminar el último # noqa E501
+    # Asegurarse de que los valores sean strings
+    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].astype(str)
+    # Crear una copia de la columna original
+    original = _listado_campus["Número de ID"].copy(deep=True)
+    # Aplicar la transformación
+    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].apply(
+        lambda x: x[:-1] if len(x) == 9 and x.isdigit() else x
+    )
+    # Obtener los valores que cambiaron y agregarlos a dni_corregido
+    cambiados = (
+        _listado_campus[original != _listado_campus["Número de ID"]]["Número de ID"]
+        .astype(int)
+        .tolist()
+    )
+    dni_corregido.extend(cambiados)
+    # Volver a transformar todos los valores de la columna a int
+    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].astype(int)
+
     if mostrar_alumnos_corregidos:
         print(
             f"Alumnos corregidos:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
