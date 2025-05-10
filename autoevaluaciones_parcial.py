@@ -461,10 +461,25 @@ def _corregir_dni_en_listado_campus(
     # Volver a transformar todos los valores de la columna a int
     _listado_campus["Número de ID"] = _listado_campus["Número de ID"].astype(int)
 
-    if mostrar_alumnos_corregidos:
+    # Determinar si hay alumnos que salen en el acta, pero no en el campus
+    en_actas_pero_no_en_campus = listado_actas[
+        ~listado_actas["Dni"].isin(_listado_campus["Número de ID"])
+    ]
+    if len(en_actas_pero_no_en_campus) == 0:
+        texto = "Todos los alumnos del acta se encontraron en el listado campus"
+        print(f"\n{texto}\n{len(texto) * '*'}\n")
+    else:
+        texto = "Alumnos en actas, pero NO en el campus:"
         print(
-            f"Alumnos corregidos:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
+            f"{texto}\n{len(texto) * '*'}\n{en_actas_pero_no_en_campus.to_string()}"  # noqa E501
         )
+
+    if mostrar_alumnos_corregidos:
+        texto = "Alumnos corregidos:"
+        print(
+            f"{texto}\n{len(texto) * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
+        )
+
     return _listado_campus
 
 
