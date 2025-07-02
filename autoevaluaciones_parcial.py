@@ -488,7 +488,7 @@ def _crear_excel(
     nombre_excel: str,
 ):
     # Crear el excel ajustando el ancho de las columnas dinámicamente
-    now = f"{datetime.now():%Y-%m-%d--%H-%M-%S%z}"
+    now = f"{datetime.now().strftime('%Y-%m-%d--%H-%M-%S.%f')[:-3]}"
     with pd.ExcelWriter(f"{nombre_excel}{now}.xlsx", engine="xlsxwriter") as writer:
         for sheetname, df in dfs.items():
             df.to_excel(writer, sheet_name=sheetname, index=False)
