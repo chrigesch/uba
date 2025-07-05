@@ -17,14 +17,10 @@ def cruzar_listas_actas_autoevaluaciones(
     print(
         f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
     )
-    # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
-    listado_campus = listado_campus.iloc[:, :-1]
-    if parcial == 1:
-        cols_autoevaluaciones = ["au_1", "au_2", "au_3_p1", "au_3_p2"]
-    elif parcial == 2:
-        cols_autoevaluaciones = ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"]
-    elif parcial == "recuperatorio":
-        cols_autoevaluaciones = [
+    COLS_POR_PARCIAL = {
+        1: ["au_1", "au_2", "au_3_p1", "au_3_p2"],
+        2: ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"],
+        "recuperatorio": [
             "au_1",
             "au_2",
             "au_3_p1",
@@ -33,13 +29,14 @@ def cruzar_listas_actas_autoevaluaciones(
             "au_6_p2",
             "au_7_p1",
             "au_7_p2",
-        ]
-    listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
-        cols_autoevaluaciones
+        ],
+    }
+    cols_autoevaluaciones = COLS_POR_PARCIAL[parcial]
+
+    listado_campus = _normalizar_listado_campus(
+        listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    listado_campus[cols_autoevaluaciones] = listado_campus[
-        cols_autoevaluaciones
-    ].replace({"-": np.nan, "Ausente": np.nan})
 
     listado_campus = _corregir_dni_en_listado_campus(
         listado_actas=listado_actas,
@@ -139,19 +136,16 @@ def cruzar_listas_actas_notas(
     print(
         f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
     )
-    # Eliminar última columna del listado_campus y cambiar los nombres de las columnas
-    listado_campus = listado_campus.iloc[:, :-1]
-    if condicion == "preliminar":
-        cols_autoevaluaciones = ["parcial_1", "parcial_2"]
-    elif condicion == "final":
-        cols_autoevaluaciones = ["parcial_1", "parcial_2", "nota_recuperatorio"]
-    listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
-        cols_autoevaluaciones
-    )
-    listado_campus[cols_autoevaluaciones] = listado_campus[
-        cols_autoevaluaciones
-    ].replace({"-": np.nan, "Ausente": np.nan})
+    COLS_POR_CONDICION = {
+        "preliminar": ["parcial_1", "parcial_2"],
+        "final": ["parcial_1", "parcial_2", "nota_recuperatorio"],
+    }
+    cols_autoevaluaciones = COLS_POR_CONDICION[condicion]
 
+    listado_campus = _normalizar_listado_campus(
+        listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
+    )
     listado_campus = _corregir_dni_en_listado_campus(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
@@ -519,3 +513,17 @@ def _crear_listado_cruzado(
     for col in cols_autoevaluaciones:
         cols_listado_cruzado.append(col)
     return listado_cruzado[cols_listado_cruzado]
+
+
+def _normalizar_listado_campus(
+    listado_campus: pd.DataFrame,
+    cols_autoevaluaciones: list[str],
+) -> pd.DataFrame:
+    listado_campus = listado_campus.iloc[:, :-1]
+    listado_campus.columns.values[-len(cols_autoevaluaciones) :] = (  # noqa F203
+        cols_autoevaluaciones
+    )
+    listado_campus[cols_autoevaluaciones] = listado_campus[
+        cols_autoevaluaciones
+    ].replace({"-": np.nan, "Ausente": np.nan})
+    return listado_campus
