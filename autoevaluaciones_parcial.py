@@ -266,8 +266,10 @@ def cruzar_listas_actas_notas(
                 | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
             )
             condicion_pendiente = (
-                pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4)))
-            ) | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
+                (pos_dif & p1.isna() & p2.isna() & (rec >= 4))
+                | (pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4))))
+                | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
+            )
 
         # Crear las distintas condiciones de promoción
         if cond_prom == "cond_prom_6_y_6":
