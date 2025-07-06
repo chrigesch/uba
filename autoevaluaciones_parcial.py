@@ -37,16 +37,12 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-
-    listado_campus = _corregir_dni_en_listado_campus(
+    listado_campus = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
         mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
-    )
-    listado_campus = _corregir_alumnos_duplicados_en_campus(
-        listado_campus=listado_campus,
-        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado = _crear_listado_cruzado(
@@ -78,35 +74,13 @@ def cruzar_listas_actas_autoevaluaciones(
         except Exception:
             resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
     resumen = resumen.reset_index()
-    # Crear un diccionario con los DataFrames para poder crear el excel
+
     if crear_excel:
-        dfs = {
-            "resumen": resumen,
-            "todas": listado_cruzado,
-        }
-        # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
-        for comision in listado_cruzado["C"].unique():
-            listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
-            if len(listado_temp["habilitada/o"].unique()) > 1:
-                # Inlcuir filas vacías entre habilitados e inhabilitados
-                n_filas_vacias = 3
-                listado_temp = pd.concat(
-                    [
-                        listado_temp.loc[listado_temp["habilitada/o"]],
-                        pd.DataFrame(
-                            np.nan,
-                            index=pd.RangeIndex(n_filas_vacias),
-                            columns=listado_temp.columns,
-                        ),
-                        listado_temp.loc[~listado_temp["habilitada/o"]],
-                    ],
-                    ignore_index=True,
-                    axis=0,
-                )
-                listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
-                    {1: True, 0: False}
-                )
-            dfs[f"Comision_{comision}"] = listado_temp
+        # Crear un diccionario con los DataFrames para poder crear el excel
+        dfs = _crear_diccionario_con_comisiones_y_resumen(
+            listado_cruzado=listado_cruzado,
+            resumen=resumen,
+        )
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
 
@@ -146,15 +120,12 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    listado_campus = _corregir_dni_en_listado_campus(
+    listado_campus = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
         mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
-    )
-    listado_campus = _corregir_alumnos_duplicados_en_campus(
-        listado_campus=listado_campus,
-        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado_notas = _crear_listado_cruzado(
@@ -342,6 +313,28 @@ def cruzar_listas_actas_notas(
     }
 
 
+def _aplicar_correcciones(
+    listado_actas: pd.DataFrame,
+    listado_campus: pd.DataFrame,
+    cols_autoevaluaciones: list[str],
+    mostrar_alumnos_no_encontrados: bool,
+    mostrar_alumnos_corregidos: bool,
+    mostrar_duplicados_campus: bool,
+):
+    listado_campus = _corregir_dni_en_listado_campus(
+        listado_actas,
+        listado_campus,
+        mostrar_alumnos_no_encontrados,
+        mostrar_alumnos_corregidos,
+    )
+    listado_campus = _corregir_alumnos_duplicados_en_campus(
+        listado_campus,
+        cols_autoevaluaciones,
+        mostrar_duplicados_campus,
+    )
+    return listado_campus
+
+
 def _calcular_promedio(row):
     p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
 
@@ -381,7 +374,7 @@ def _calcular_promedio(row):
 
 def _corregir_alumnos_duplicados_en_campus(
     listado_campus: pd.DataFrame,
-    cols_autoevaluaciones: list,
+    cols_autoevaluaciones: list[str],
     mostrar_duplicados_campus: bool,
 ) -> pd.DataFrame:
     _listado_campus = listado_campus.copy(deep=True)
@@ -477,6 +470,40 @@ def _corregir_dni_en_listado_campus(
         )
 
     return _listado_campus
+
+
+def _crear_diccionario_con_comisiones_y_resumen(
+    listado_cruzado: pd.DataFrame,
+    resumen: pd.DataFrame,
+) -> dict:
+    dfs = {
+        "resumen": resumen,
+        "todas": listado_cruzado,
+    }
+    # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
+    for comision in listado_cruzado["C"].unique():
+        listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
+        if len(listado_temp["habilitada/o"].unique()) > 1:
+            # Inlcuir filas vacías entre habilitados e inhabilitados
+            n_filas_vacias = 3
+            listado_temp = pd.concat(
+                [
+                    listado_temp.loc[listado_temp["habilitada/o"]],
+                    pd.DataFrame(
+                        np.nan,
+                        index=pd.RangeIndex(n_filas_vacias),
+                        columns=listado_temp.columns,
+                    ),
+                    listado_temp.loc[~listado_temp["habilitada/o"]],
+                ],
+                ignore_index=True,
+                axis=0,
+            )
+            listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
+                {1: True, 0: False}
+            )
+        dfs[f"Comision_{comision}"] = listado_temp
+    return dfs
 
 
 def _crear_excel(
