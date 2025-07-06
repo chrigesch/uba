@@ -37,16 +37,12 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-
-    listado_campus = _corregir_dni_en_listado_campus(
+    listado_campus = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
         mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
-    )
-    listado_campus = _corregir_alumnos_duplicados_en_campus(
-        listado_campus=listado_campus,
-        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado = _crear_listado_cruzado(
@@ -146,15 +142,12 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    listado_campus = _corregir_dni_en_listado_campus(
+    listado_campus = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
+        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
         mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
-    )
-    listado_campus = _corregir_alumnos_duplicados_en_campus(
-        listado_campus=listado_campus,
-        cols_autoevaluaciones=cols_autoevaluaciones,
         mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
     listado_cruzado_notas = _crear_listado_cruzado(
@@ -342,6 +335,28 @@ def cruzar_listas_actas_notas(
     }
 
 
+def _aplicar_correcciones(
+    listado_actas: pd.DataFrame,
+    listado_campus: pd.DataFrame,
+    cols_autoevaluaciones: list[str],
+    mostrar_alumnos_no_encontrados: bool,
+    mostrar_alumnos_corregidos: bool,
+    mostrar_duplicados_campus: bool,
+):
+    listado_campus = _corregir_dni_en_listado_campus(
+        listado_actas,
+        listado_campus,
+        mostrar_alumnos_no_encontrados,
+        mostrar_alumnos_corregidos,
+    )
+    listado_campus = _corregir_alumnos_duplicados_en_campus(
+        listado_campus,
+        cols_autoevaluaciones,
+        mostrar_duplicados_campus,
+    )
+    return listado_campus
+
+
 def _calcular_promedio(row):
     p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
 
@@ -381,7 +396,7 @@ def _calcular_promedio(row):
 
 def _corregir_alumnos_duplicados_en_campus(
     listado_campus: pd.DataFrame,
-    cols_autoevaluaciones: list,
+    cols_autoevaluaciones: list[str],
     mostrar_duplicados_campus: bool,
 ) -> pd.DataFrame:
     _listado_campus = listado_campus.copy(deep=True)
