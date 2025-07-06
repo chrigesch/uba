@@ -74,35 +74,13 @@ def cruzar_listas_actas_autoevaluaciones(
         except Exception:
             resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
     resumen = resumen.reset_index()
-    # Crear un diccionario con los DataFrames para poder crear el excel
+
     if crear_excel:
-        dfs = {
-            "resumen": resumen,
-            "todas": listado_cruzado,
-        }
-        # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
-        for comision in listado_cruzado["C"].unique():
-            listado_temp = listado_cruzado[listado_cruzado["C"] == comision]
-            if len(listado_temp["habilitada/o"].unique()) > 1:
-                # Inlcuir filas vacías entre habilitados e inhabilitados
-                n_filas_vacias = 3
-                listado_temp = pd.concat(
-                    [
-                        listado_temp.loc[listado_temp["habilitada/o"]],
-                        pd.DataFrame(
-                            np.nan,
-                            index=pd.RangeIndex(n_filas_vacias),
-                            columns=listado_temp.columns,
-                        ),
-                        listado_temp.loc[~listado_temp["habilitada/o"]],
-                    ],
-                    ignore_index=True,
-                    axis=0,
-                )
-                listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
-                    {1: True, 0: False}
-                )
-            dfs[f"Comision_{comision}"] = listado_temp
+        # Crear un diccionario con los DataFrames para poder crear el excel
+        dfs = _crear_diccionario_con_comisiones_y_resumen(
+            listado_cruzado=listado_cruzado,
+            resumen=resumen,
+        )
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
 
