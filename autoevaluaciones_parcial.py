@@ -88,7 +88,7 @@ def cruzar_listas_actas_autoevaluaciones(
     correcciones = {
         e: listado_campus_con_correcciones[e]
         for e in listado_campus_con_correcciones.keys()
-        if e in ["corregidos", "duplicados", "no_encontrados"]
+        if e != "listado_campus"
     }
 
     output = {"listas": dfs_finales, "correcciones": correcciones}
@@ -316,7 +316,7 @@ def cruzar_listas_actas_notas(
     correcciones = {
         e: listado_campus_con_correcciones[e]
         for e in listado_campus_con_correcciones.keys()
-        if e in ["corregidos", "duplicados", "no_encontrados"]
+        if e != "listado_campus"
     }
 
     output = {"listas": dfs_finales, "correcciones": correcciones}
@@ -344,6 +344,7 @@ def _aplicar_correcciones(
     )
     dfs = {
         "listado_campus": correcciones_2["listado_campus"],
+        "en_actas_pero_no_en_campus": correcciones_1["en_actas_pero_no_en_campus"],
         "corregidos": correcciones_1["corregidos"],
         "duplicados": correcciones_2["duplicados"],
         "no_encontrados": correcciones_1["no_encontrados"],
@@ -496,6 +497,7 @@ def _corregir_dni_en_listado_campus(
     dfs = {
         "listado_campus": _listado_campus,
         "corregidos": df_corregidos,
+        "en_actas_pero_no_en_campus": en_actas_pero_no_en_campus,
         "no_encontrados": dni_no_encontrados,
     }
     return dfs
