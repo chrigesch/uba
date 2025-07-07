@@ -1,4 +1,5 @@
 from datetime import datetime
+from io import BytesIO
 import numpy as np
 import pandas as pd
 from typing import Literal
@@ -518,6 +519,23 @@ def _crear_excel(
                 )
                 col_idx = df.columns.get_loc(column)
                 writer.sheets[sheetname].set_column(col_idx, col_idx, column_length)
+
+
+def _crear_excel_descargable(dfs: dict) -> BytesIO:
+    """Crea un archivo Excel en memoria con múltiples hojas."""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        for sheetname, df in dfs.items():
+            df.to_excel(writer, sheet_name=sheetname, index=False)
+            worksheet = writer.sheets[sheetname]
+            for column in df.columns:
+                column_length = (
+                    int(max(df[column].astype(str).map(len).max(), len(column))) + 1
+                )
+                col_idx = df.columns.get_loc(column)
+                worksheet.set_column(col_idx, col_idx, column_length)
+    output.seek(0)  # Volver al inicio del archivo en memoria
+    return output
 
 
 def _crear_listado_cruzado(
