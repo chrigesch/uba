@@ -77,15 +77,22 @@ def cruzar_listas_actas_autoevaluaciones(
     resumen = resumen.reset_index()
 
     # Crear un diccionario con los DataFrames para poder crear el excel
-    dfs = _crear_diccionario_con_comisiones_y_resumen(
+    dfs_finales = _crear_diccionario_con_comisiones_y_resumen(
         listado_cruzado=listado_cruzado,
         resumen=resumen,
     )
     if crear_excel:
         # Crear el excel ajustando el ancho de las columnas dinámicamente
-        _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
+        _crear_excel(dfs=dfs_finales, nombre_excel="listado_habilitados_")
 
-    return dfs
+    correcciones = {
+        e: listado_campus_con_correcciones[e]
+        for e in listado_campus_con_correcciones.keys()
+        if e in ["corregidos", "duplicados", "no_encontrados"]
+    }
+
+    output = {"listas": dfs_finales, "correcciones": correcciones}
+    return output
 
 
 def cruzar_listas_actas_notas(
@@ -298,14 +305,22 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas = listado_cruzado_notas.rename(
             columns={cond_promocion: "condicion"}
         )
-    dfs = {
+    dfs_finales = {
         "resumen": resumen_df,
         "todos": listado_cruzado_notas,
     }
     # Crear Excel
     if crear_excel:
-        _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
-    return dfs
+        _crear_excel(dfs=dfs_finales, nombre_excel="listado_notas_")
+
+    correcciones = {
+        e: listado_campus_con_correcciones[e]
+        for e in listado_campus_con_correcciones.keys()
+        if e in ["corregidos", "duplicados", "no_encontrados"]
+    }
+
+    output = {"listas": dfs_finales, "correcciones": correcciones}
+    return output
 
 
 def _aplicar_correcciones(
