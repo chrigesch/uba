@@ -298,17 +298,14 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas = listado_cruzado_notas.rename(
             columns={cond_promocion: "condicion"}
         )
+    dfs = {
+        "resumen": resumen_df,
+        "todos": listado_cruzado_notas,
+    }
     # Crear Excel
     if crear_excel:
-        dfs = {
-            "resumen": resumen_df,
-            "todas": listado_cruzado_notas,
-        }
         _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
-    return {
-        "resumen": resumen_df,
-        "listado_cruzado": listado_cruzado_notas,
-    }
+    return dfs
 
 
 def _aplicar_correcciones(
@@ -476,7 +473,7 @@ def _crear_diccionario_con_comisiones_y_resumen(
 ) -> dict:
     dfs = {
         "resumen": resumen,
-        "todas": listado_cruzado,
+        "todos": listado_cruzado,
     }
     # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
     for comision in listado_cruzado["C"].unique():
