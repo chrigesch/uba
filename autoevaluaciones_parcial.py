@@ -76,16 +76,16 @@ def cruzar_listas_actas_autoevaluaciones(
             resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
     resumen = resumen.reset_index()
 
+    # Crear un diccionario con los DataFrames para poder crear el excel
+    dfs = _crear_diccionario_con_comisiones_y_resumen(
+        listado_cruzado=listado_cruzado,
+        resumen=resumen,
+    )
     if crear_excel:
-        # Crear un diccionario con los DataFrames para poder crear el excel
-        dfs = _crear_diccionario_con_comisiones_y_resumen(
-            listado_cruzado=listado_cruzado,
-            resumen=resumen,
-        )
         # Crear el excel ajustando el ancho de las columnas dinámicamente
         _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
 
-    return {"resumen": resumen, "listado_cruzado": listado_cruzado}
+    return dfs
 
 
 def cruzar_listas_actas_notas(
@@ -500,6 +500,8 @@ def _crear_diccionario_con_comisiones_y_resumen(
             listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
                 {1: True, 0: False}
             )
+        if len(str(comision)) == 1:
+            comision = f"0{comision}"
         dfs[f"Comision_{comision}"] = listado_temp
     return dfs
 
