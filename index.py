@@ -10,22 +10,6 @@ from autoevaluaciones_parcial import (
 )
 
 
-def iniciar_session_state():
-    # Set default values
-    if "listado_habilitados" not in st.session_state:
-        st.session_state.factor_de_multiplicacion = None
-    if "proveedor" not in st.session_state:
-        st.session_state.proveedor = None
-    if "tabla_adaptada" not in st.session_state:
-        st.session_state.tabla_adaptada = None
-
-
-def reiniciar_session_state():
-    st.session_state.factor_de_multiplicacion = None
-    st.session_state.proveedor = None
-    st.session_state.tabla_adaptada = None
-
-
 OPERACIONES_DISPONIBLES = ("Parcial 1", "Parcial 2")
 
 
@@ -37,7 +21,6 @@ def main():
     )
 
     st.title(body="Listados")
-    iniciar_session_state()
     operacion = st.selectbox(
         label="**Seleccionar el listado requerido**",
         options=OPERACIONES_DISPONIBLES,
@@ -50,7 +33,6 @@ def main():
             uploaded_file_actas = st.file_uploader(
                 label="**Cargar el Excel de 'actas'**",
                 type=["xlsx"],
-                on_change=reiniciar_session_state(),
             )
             if uploaded_file_actas is not None:
                 listado_actas = pd.read_excel(io=uploaded_file_actas)
@@ -59,7 +41,6 @@ def main():
             uploaded_file_campus = st.file_uploader(
                 label="**Cargar el Excel con las autoevaluaciones del campus**",
                 type=["xlsx"],
-                on_change=reiniciar_session_state(),
             )
             if uploaded_file_campus is not None:
                 listado_campus = pd.read_excel(io=uploaded_file_campus)
@@ -69,7 +50,6 @@ def main():
                 )
 
         if (uploaded_file_actas is None) | (uploaded_file_campus is None):
-            reiniciar_session_state()
             st.stop()
 
         parcial = {"Parcial 1": 1, "Parcial 2": 2}
@@ -83,17 +63,25 @@ def main():
             mostrar_alumnos_corregidos=True,
             mostrar_duplicados_campus=True,
         )
-        listados_disponibles = resultado.keys()
-        listado_seleccionado = st.selectbox(
-            label="**Seleccionar el listado requerido**",
-            options=listados_disponibles,
-        )
-        st.dataframe(resultado[listado_seleccionado])
+        tab_1, tab_2 = st.tabs(tabs=["**Listas**", "**Correcciones**"])
+        with tab_1:
+            listados_disponibles = resultado["listas"].keys()
+            listado_seleccionado = st.selectbox(
+                label="**Seleccionar el listado requerido**",
+                options=listados_disponibles,
+            )
+            st.dataframe(resultado["listas"][listado_seleccionado])
+        with tab_2:
+            listados_disponibles = resultado["correcciones"].keys()
+            listado_seleccionado = st.selectbox(
+                label="**Seleccionar el listado requerido**",
+                options=listados_disponibles,
+            )
+            st.dataframe(resultado["correcciones"][listado_seleccionado])
 
-        excel_bytes = _crear_excel_descargable(resultado)
-        nombre_archivo = (
-            f"listado_habilitados_{datetime.now().strftime('%Y-%m-%d--%H-%M-%S')}.xlsx"
-        )
+        excel_bytes = _crear_excel_descargable(resultado["listas"])
+        now = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+        nombre_archivo = f"listado_habilitados_parcial_{parcial[operacion]}_{now}.xlsx"
 
         st.download_button(
             label="Descargar el listado de habilitadados",

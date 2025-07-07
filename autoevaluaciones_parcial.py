@@ -38,7 +38,7 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    listado_campus = _aplicar_correcciones(
+    listado_campus_con_correcciones = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
@@ -48,7 +48,7 @@ def cruzar_listas_actas_autoevaluaciones(
     )
     listado_cruzado = _crear_listado_cruzado(
         listado_actas=listado_actas,
-        listado_campus=listado_campus,
+        listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
 
@@ -76,16 +76,23 @@ def cruzar_listas_actas_autoevaluaciones(
             resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
     resumen = resumen.reset_index()
 
+    # Crear un diccionario con los DataFrames para poder crear el excel
+    dfs_finales = _crear_diccionario_con_comisiones_y_resumen(
+        listado_cruzado=listado_cruzado,
+        resumen=resumen,
+    )
     if crear_excel:
-        # Crear un diccionario con los DataFrames para poder crear el excel
-        dfs = _crear_diccionario_con_comisiones_y_resumen(
-            listado_cruzado=listado_cruzado,
-            resumen=resumen,
-        )
         # Crear el excel ajustando el ancho de las columnas dinámicamente
-        _crear_excel(dfs=dfs, nombre_excel="listado_habilitados_")
+        _crear_excel(dfs=dfs_finales, nombre_excel="listado_habilitados_")
 
-    return {"resumen": resumen, "listado_cruzado": listado_cruzado}
+    correcciones = {
+        e: listado_campus_con_correcciones[e]
+        for e in listado_campus_con_correcciones.keys()
+        if e != "listado_campus"
+    }
+
+    output = {"listas": dfs_finales, "correcciones": correcciones}
+    return output
 
 
 def cruzar_listas_actas_notas(
@@ -121,7 +128,7 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    listado_campus = _aplicar_correcciones(
+    listado_campus_con_correcciones = _aplicar_correcciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus,
         cols_autoevaluaciones=cols_autoevaluaciones,
@@ -131,7 +138,7 @@ def cruzar_listas_actas_notas(
     )
     listado_cruzado_notas = _crear_listado_cruzado(
         listado_actas=listado_actas,
-        listado_campus=listado_campus,
+        listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
     # Crear placeholders para los (posibles) certificados
@@ -298,17 +305,22 @@ def cruzar_listas_actas_notas(
         listado_cruzado_notas = listado_cruzado_notas.rename(
             columns={cond_promocion: "condicion"}
         )
+    dfs_finales = {
+        "resumen": resumen_df,
+        "todos": listado_cruzado_notas,
+    }
     # Crear Excel
     if crear_excel:
-        dfs = {
-            "resumen": resumen_df,
-            "todas": listado_cruzado_notas,
-        }
-        _crear_excel(dfs=dfs, nombre_excel="listado_notas_")
-    return {
-        "resumen": resumen_df,
-        "listado_cruzado": listado_cruzado_notas,
+        _crear_excel(dfs=dfs_finales, nombre_excel="listado_notas_")
+
+    correcciones = {
+        e: listado_campus_con_correcciones[e]
+        for e in listado_campus_con_correcciones.keys()
+        if e != "listado_campus"
     }
+
+    output = {"listas": dfs_finales, "correcciones": correcciones}
+    return output
 
 
 def _aplicar_correcciones(
@@ -318,19 +330,26 @@ def _aplicar_correcciones(
     mostrar_alumnos_no_encontrados: bool,
     mostrar_alumnos_corregidos: bool,
     mostrar_duplicados_campus: bool,
-):
-    listado_campus = _corregir_dni_en_listado_campus(
-        listado_actas,
-        listado_campus,
-        mostrar_alumnos_no_encontrados,
-        mostrar_alumnos_corregidos,
+) -> dict:
+    correcciones_1 = _corregir_dni_en_listado_campus(
+        listado_actas=listado_actas,
+        listado_campus=listado_campus,
+        mostrar_alumnos_no_encontrados=mostrar_alumnos_no_encontrados,
+        mostrar_alumnos_corregidos=mostrar_alumnos_corregidos,
     )
-    listado_campus = _corregir_alumnos_duplicados_en_campus(
-        listado_campus,
-        cols_autoevaluaciones,
-        mostrar_duplicados_campus,
+    correcciones_2 = _corregir_alumnos_duplicados_en_campus(
+        listado_campus=correcciones_1["listado_campus"],
+        cols_autoevaluaciones=cols_autoevaluaciones,
+        mostrar_duplicados_campus=mostrar_duplicados_campus,
     )
-    return listado_campus
+    dfs = {
+        "listado_campus": correcciones_2["listado_campus"],
+        "en_actas_pero_no_en_campus": correcciones_1["en_actas_pero_no_en_campus"],
+        "corregidos": correcciones_1["corregidos"],
+        "duplicados": correcciones_2["duplicados"],
+        "no_encontrados": correcciones_1["no_encontrados"],
+    }
+    return dfs
 
 
 def _calcular_promedio(row):
@@ -374,7 +393,7 @@ def _corregir_alumnos_duplicados_en_campus(
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list[str],
     mostrar_duplicados_campus: bool,
-) -> pd.DataFrame:
+) -> dict:
     _listado_campus = listado_campus.copy(deep=True)
     # Determinar alumnos duplicados en el listado del campus
     dni_alumnos_duplicados = _listado_campus["Número de ID"].value_counts()
@@ -393,11 +412,20 @@ def _corregir_alumnos_duplicados_en_campus(
                 if fila != lista_temp["n_nan"].idxmin()
             ]
             _listado_campus = _listado_campus.drop(filas_a_eliminar, axis=0)
+
+    df_duplicados = _listado_campus[
+        _listado_campus["Número de ID"].isin(dni_alumnos_duplicados)
+    ]
+
     if mostrar_duplicados_campus:
         print(
-            f"Alumnos duplicados:\n{19 * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_alumnos_duplicados)].to_string()}"  # noqa E501
+            f"Alumnos duplicados:\n{19 * '*'}\n{df_duplicados.to_string()}"  # noqa E501
         )
-    return _listado_campus
+    dfs = {
+        "listado_campus": _listado_campus,
+        "duplicados": df_duplicados,
+    }
+    return dfs
 
 
 def _corregir_dni_en_listado_campus(
@@ -405,7 +433,7 @@ def _corregir_dni_en_listado_campus(
     listado_campus: pd.DataFrame,
     mostrar_alumnos_no_encontrados: bool,
     mostrar_alumnos_corregidos: bool,
-) -> pd.DataFrame:
+) -> dict:
     # Determinar cuáles DNIs están en el listado del campus, pero no en el listado de actas
     _listado_campus = listado_campus.copy(deep=True)
     dni_no_encontrados = listado_campus.copy()[
@@ -461,13 +489,18 @@ def _corregir_dni_en_listado_campus(
             f"{texto}\n{len(texto) * '*'}\n{en_actas_pero_no_en_campus.to_string()}"  # noqa E501
         )
 
+    df_corregidos = _listado_campus[_listado_campus["Número de ID"].isin(dni_corregido)]
+
     if mostrar_alumnos_corregidos:
         texto = "Alumnos corregidos:"
-        print(
-            f"{texto}\n{len(texto) * '*'}\n{_listado_campus[_listado_campus['Número de ID'].isin(dni_corregido)].to_string()}"  # noqa E501
-        )
-
-    return _listado_campus
+        print(f"{texto}\n{len(texto) * '*'}\n{df_corregidos.to_string()}")  # noqa E501
+    dfs = {
+        "listado_campus": _listado_campus,
+        "corregidos": df_corregidos,
+        "en_actas_pero_no_en_campus": en_actas_pero_no_en_campus,
+        "no_encontrados": dni_no_encontrados,
+    }
+    return dfs
 
 
 def _crear_diccionario_con_comisiones_y_resumen(
@@ -476,7 +509,7 @@ def _crear_diccionario_con_comisiones_y_resumen(
 ) -> dict:
     dfs = {
         "resumen": resumen,
-        "todas": listado_cruzado,
+        "todos": listado_cruzado,
     }
     # Crear un diccionario con un DataFrame que contiene todas las comisiones y un DataFrame por cada una de las comisiones # noqa E501
     for comision in listado_cruzado["C"].unique():
@@ -500,6 +533,8 @@ def _crear_diccionario_con_comisiones_y_resumen(
             listado_temp["habilitada/o"] = listado_temp["habilitada/o"].replace(
                 {1: True, 0: False}
             )
+        if len(str(comision)) == 1:
+            comision = f"0{comision}"
         dfs[f"Comision_{comision}"] = listado_temp
     return dfs
 
