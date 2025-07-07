@@ -344,9 +344,9 @@ def _aplicar_correcciones(
     )
     dfs = {
         "listado_campus": correcciones_2["listado_campus"],
-        "no_encontrados": correcciones_1["no_encontrados"],
         "corregidos": correcciones_1["corregidos"],
         "duplicados": correcciones_2["duplicados"],
+        "no_encontrados": correcciones_1["no_encontrados"],
     }
     return dfs
 
