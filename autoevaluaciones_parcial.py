@@ -180,15 +180,9 @@ def cruzar_listas_actas_notas(
     )
     # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
     if condicion == "final":
-        listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
-            _calcular_promedio, axis=1
-        )
-        # Redondear (pandas redondea 0.5 para arriba -> ajuste del +0.05)
-        listado_cruzado_notas["promedio"] = (
-            listado_cruzado_notas["promedio"] + 0.05
-        ).round()
-        listado_cruzado_notas = listado_cruzado_notas.rename(
-            columns={cond_promocion: "condicion"}
+        listado_cruzado_notas = _aplicar_calculo_promedio_y_renombrar(
+            df=listado_cruzado_notas,
+            columna_condicion_original=cond_promocion,  # type: ignore
         )
     dfs_finales = {
         "resumen": resumen_df,
@@ -237,41 +231,55 @@ def _aplicar_correcciones(
     return dfs
 
 
-def _calcular_promedio(row):
-    p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
+def _aplicar_calculo_promedio_y_renombrar(
+    df: pd.DataFrame,
+    columna_condicion_original: str,
+) -> pd.DataFrame:
+    """
+    Calcula el promedio por fila según reglas específicas,
+    redondea y renombra la columna de condición a 'condicion'.
+    """
 
-    if pd.notna(p1) and pd.notna(p2) and 4 <= p1 <= 10 and 4 <= p2 <= 10:
-        return (p1 + p2) / 2
-    elif p1 > 3 and pd.notna(rec) and rec > 3:
-        return (p1 + rec) / 2
-    elif p2 > 3 and pd.notna(rec) and rec > 3:
-        return (p2 + rec) / 2
-    elif p1 < 4 and p2 < 4 and p1 <= p2:
-        return p2
-    elif p1 < 4 and p2 < 4 and p1 >= p2:
-        return p1
-    elif p1 < 4 and p2 > 3 and pd.isna(rec):
-        return p1
-    elif p1 > 3 and p2 < 4 and pd.isna(rec):
-        return p2
-    elif p1 < 4 and rec < 4 and p1 >= rec:
-        return p1
-    elif p1 < 4 and rec < 4 and p1 <= rec:
-        return rec
-    elif p2 < 4 and rec < 4 and p2 >= rec:
-        return p2
-    elif p2 < 4 and rec < 4 and p2 <= rec:
-        return rec
-    elif p1 > 3 and pd.isna(p2) and rec < 4:
-        return rec
-    elif pd.isna(p1) and p2 > 3 and rec < 4:
-        return rec
-    elif p1 < 4 and pd.isna(p2) and pd.isna(rec):
-        return p1
-    elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
-        return p2
-    else:
-        return np.nan
+    def _calcular_promedio(row):
+        p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
+
+        if pd.notna(p1) and pd.notna(p2) and 4 <= p1 <= 10 and 4 <= p2 <= 10:
+            return (p1 + p2) / 2
+        elif p1 > 3 and pd.notna(rec) and rec > 3:
+            return (p1 + rec) / 2
+        elif p2 > 3 and pd.notna(rec) and rec > 3:
+            return (p2 + rec) / 2
+        elif p1 < 4 and p2 < 4 and p1 <= p2:
+            return p2
+        elif p1 < 4 and p2 < 4 and p1 >= p2:
+            return p1
+        elif p1 < 4 and p2 > 3 and pd.isna(rec):
+            return p1
+        elif p1 > 3 and p2 < 4 and pd.isna(rec):
+            return p2
+        elif p1 < 4 and rec < 4 and p1 >= rec:
+            return p1
+        elif p1 < 4 and rec < 4 and p1 <= rec:
+            return rec
+        elif p2 < 4 and rec < 4 and p2 >= rec:
+            return p2
+        elif p2 < 4 and rec < 4 and p2 <= rec:
+            return rec
+        elif p1 > 3 and pd.isna(p2) and rec < 4:
+            return rec
+        elif pd.isna(p1) and p2 > 3 and rec < 4:
+            return rec
+        elif p1 < 4 and pd.isna(p2) and pd.isna(rec):
+            return p1
+        elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
+            return p2
+        else:
+            return np.nan
+
+    df["promedio"] = df.apply(_calcular_promedio, axis=1)
+    df["promedio"] = (df["promedio"] + 0.05).round()
+    df = df.rename(columns={columna_condicion_original: "condicion"})
+    return df
 
 
 def _corregir_alumnos_duplicados_en_campus(
