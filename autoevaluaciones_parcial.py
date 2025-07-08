@@ -194,86 +194,13 @@ def cruzar_listas_actas_notas(
         ]
     else:
         posibles_condiciones_para_promocionar = [cond_promocion]
-    # Crear variables para ahorrar espacio a la hora de determinar las condiciones
-    p1, p2, cert1, cert2, pos_dif = (
-        listado_cruzado_notas["parcial_1"],
-        listado_cruzado_notas["parcial_2"],
-        listado_cruzado_notas["certificado_valido_p1"],
-        listado_cruzado_notas["certificado_valido_p2"],
-        listado_cruzado_notas["diferido"],
+
+    # Evaluar las condiciones
+    listado_cruzado_notas = _determinar_condiciones_de_promocion(
+        df=listado_cruzado_notas,
+        condicion=condicion,
+        posibles_condiciones=posibles_condiciones_para_promocionar,
     )
-    if condicion == "final":
-        rec = listado_cruzado_notas["nota_recuperatorio"]
-    elif condicion == "preliminar":
-        rec = pd.Series([np.nan] * len(listado_cruzado_notas))
-
-    for cond_prom in posibles_condiciones_para_promocionar:
-        # Crear columna con "placeholder" ("pendiente")
-        listado_cruzado_notas[cond_prom] = "pendiente"
-        # Crear las distintas condiciones de libre, libre_por_nota y regular
-        if condicion == "preliminar":
-            condicion_libre = (p1.isna()) & (p2.isna() & ~cert1 & ~cert2)
-            condicion_libre_por_nota = (
-                ((p1.isna()) & (p2 < 4) & ~cert1 & ~cert2)
-                | ((p1 < 4) & (p2.isna()) & ~cert1 & ~cert2)
-                | ((p1 < 4) & (p2 < 4) & ~cert1 & ~cert2)
-            )
-            condicion_regular = (p1 >= 4) & (p2 >= 4)
-        elif condicion == "final":
-            condicion_libre = (
-                ((p1.isna()) & (p2.isna()))
-                | ((p1 >= 4) & (p2.isna()) & (rec.isna()))
-                | ((p1.isna()) & (p2 >= 4) & (rec.isna()))
-            )
-            condicion_libre_por_nota = (
-                ((p1.isna()) & (p2 < 4))
-                | ((p1 < 4) & (p2.isna()))
-                | ((p1 < 4) & (p2 < 4))
-                | ((p1 >= 4) & (p2 < 4) & (rec.isna()))
-                | ((p1 < 4) & (p2 >= 4) & (rec.isna()))
-                | (rec < 4)
-            )
-            condicion_regular = (
-                ((p1 >= 4) & (p2 >= 4))
-                | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
-                | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
-            )
-            condicion_pendiente = (
-                (pos_dif & p1.isna() & p2.isna() & (rec >= 4))
-                | (pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4))))
-                | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
-            )
-
-        # Crear las distintas condiciones de promoción
-        if cond_prom == "cond_prom_6_y_6":
-            condicion_promocion = (
-                ((p1 >= 6) & (p2 >= 6))
-                | (cert1 & (p2 >= 6) & (rec >= 6))
-                | (cert2 & (p1 >= 6) & (rec >= 6))
-            )
-        elif cond_prom == "cond_prom_6_y_7":
-            condicion_promocion = (
-                ((p1 >= 7) & (p2 >= 6))
-                | ((p1 >= 6) & (p2 >= 7))
-                | (cert1 & (((p2 >= 7) & (rec >= 6)) | ((p2 >= 6) & (rec >= 7))))
-                | (cert2 & (((p1 >= 7) & (rec >= 6)) | ((p1 >= 6) & (rec >= 7))))
-            )
-        elif cond_prom == "cond_prom_7_y_7":
-            condicion_promocion = (
-                ((p1 >= 7) & (p2 >= 7))
-                | (cert1 & (p2 >= 7) & (rec >= 7))
-                | (cert2 & (p1 >= 7) & (rec >= 7))
-            )
-
-        listado_cruzado_notas.loc[condicion_libre, cond_prom] = "libre"
-        listado_cruzado_notas.loc[condicion_libre_por_nota, cond_prom] = (
-            "libre_por_nota"
-        )
-        listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
-        if condicion == "final":
-            listado_cruzado_notas.loc[condicion_pendiente, cond_prom] = "pendiente"
-        # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
-        listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
     # Agregamos columna para indicar cuál parcial debe recuperar
     condicion_actual = listado_cruzado_notas.columns[-1]
     ya_definido = listado_cruzado_notas[condicion_actual] != "pendiente"
@@ -590,6 +517,88 @@ def _crear_listado_cruzado(
     for col in cols_autoevaluaciones:
         cols_listado_cruzado.append(col)
     return listado_cruzado[cols_listado_cruzado]
+
+
+def _determinar_condiciones_de_promocion(
+    df: pd.DataFrame,
+    condicion: Literal["preliminar", "final"],
+    posibles_condiciones: list[str],
+) -> pd.DataFrame:
+    p1, p2 = df["parcial_1"], df["parcial_2"]
+    cert1, cert2 = df["certificado_valido_p1"], df["certificado_valido_p2"]
+    pos_dif = df["diferido"]
+    rec = (
+        df["nota_recuperatorio"]
+        if condicion == "final"
+        else pd.Series([np.nan] * len(df))
+    )
+
+    for cond_prom in posibles_condiciones:
+        df[cond_prom] = "pendiente"
+
+        if condicion == "preliminar":
+            condicion_libre = (p1.isna()) & (p2.isna() & ~cert1 & ~cert2)
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2.isna()) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2 < 4) & ~cert1 & ~cert2)
+            )
+            condicion_regular = (p1 >= 4) & (p2 >= 4)
+        else:  # condicion == "final"
+            condicion_libre = (
+                ((p1.isna()) & (p2.isna()))
+                | ((p1 >= 4) & (p2.isna()) & (rec.isna()))
+                | ((p1.isna()) & (p2 >= 4) & (rec.isna()))
+            )
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4))
+                | ((p1 < 4) & (p2.isna()))
+                | ((p1 < 4) & (p2 < 4))
+                | ((p1 >= 4) & (p2 < 4) & (rec.isna()))
+                | ((p1 < 4) & (p2 >= 4) & (rec.isna()))
+                | (rec < 4)
+            )
+            condicion_regular = (
+                ((p1 >= 4) & (p2 >= 4))
+                | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
+                | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
+            )
+            condicion_pendiente = (
+                (pos_dif & p1.isna() & p2.isna() & (rec >= 4))
+                | (pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4))))
+                | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
+            )
+
+        # Condiciones de promoción
+        if cond_prom == "cond_prom_6_y_6":
+            condicion_promocion = (
+                ((p1 >= 6) & (p2 >= 6))
+                | (cert1 & (p2 >= 6) & (rec >= 6))
+                | (cert2 & (p1 >= 6) & (rec >= 6))
+            )
+        elif cond_prom == "cond_prom_6_y_7":
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 6))
+                | ((p1 >= 6) & (p2 >= 7))
+                | (cert1 & (((p2 >= 7) & (rec >= 6)) | ((p2 >= 6) & (rec >= 7))))
+                | (cert2 & (((p1 >= 7) & (rec >= 6)) | ((p1 >= 6) & (rec >= 7))))
+            )
+        elif cond_prom == "cond_prom_7_y_7":
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 7))
+                | (cert1 & (p2 >= 7) & (rec >= 7))
+                | (cert2 & (p1 >= 7) & (rec >= 7))
+            )
+
+        # Aplicar condiciones al DataFrame
+        df.loc[condicion_libre, cond_prom] = "libre"
+        df.loc[condicion_libre_por_nota, cond_prom] = "libre_por_nota"
+        df.loc[condicion_regular, cond_prom] = "regular"
+        if condicion == "final":
+            df.loc[condicion_pendiente, cond_prom] = "pendiente"
+        df.loc[condicion_promocion, cond_prom] = "promocion"
+
+    return df
 
 
 def _normalizar_listado_campus(
