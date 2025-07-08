@@ -7,6 +7,7 @@ __pycache__/
 downloads/
 notebooks/
 .vscode/
+.coverage
 
 # Jupyter Notebook
 .ipynb_checkpoints
