@@ -141,43 +141,12 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    # Crear placeholders para los (posibles) certificados
-    listado_cruzado_notas["certificado_valido_p1"] = False
-    listado_cruzado_notas["tipo_de_certificado_p1"] = np.nan
-    listado_cruzado_notas["certificado_valido_p2"] = False
-    listado_cruzado_notas["tipo_de_certificado_p2"] = np.nan
-    # Agregar los certificados
-    if listado_certificados is not None:
-        print(
-            f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa E501
-        )
-        # Renombrar columnas
-        cols_nombres = [
-            "certificado_valido_p1",
-            "tipo_de_certificado_p1",
-            "certificado_valido_p2",
-            "tipo_de_certificado_p2",
-        ]
-        listado_certificados.columns.values[-4:] = cols_nombres
-        # Convertir contenido de estas columnas en minúscula
-        for col in cols_nombres:
-            listado_certificados[col] = listado_certificados[col].str.lower()
-        # Cruzar las listas
-        listado_cruzado_temp = pd.merge(
-            left=listado_actas,
-            right=listado_certificados,
-            how="left",
-            left_on="Dni",
-            right_on="Dni",
-        )
-        # Introducir contenido del listado_cruzado_temp en listado_cruzado_notas
-        for col in ["certificado_valido_p1", "certificado_valido_p2"]:
-            listado_cruzado_notas[col] = np.where(
-                listado_cruzado_temp[col] == "si", True, False
-            )
-        for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
-            listado_cruzado_notas[col] = listado_cruzado_temp[col]
-
+    # Agregamos los certificados
+    listado_cruzado_notas = _procesar_certificados(
+        listado_cruzado=listado_cruzado_notas,
+        listado_actas=listado_actas,
+        listado_certificados=listado_certificados,
+    )
     # Agregamos columna para indicar si es diferido
     listado_cruzado_notas["diferido"] = np.where(
         listado_cruzado_notas["certificado_valido_p1"]
@@ -194,116 +163,26 @@ def cruzar_listas_actas_notas(
         ]
     else:
         posibles_condiciones_para_promocionar = [cond_promocion]
-    # Crear variables para ahorrar espacio a la hora de determinar las condiciones
-    p1, p2, cert1, cert2, pos_dif = (
-        listado_cruzado_notas["parcial_1"],
-        listado_cruzado_notas["parcial_2"],
-        listado_cruzado_notas["certificado_valido_p1"],
-        listado_cruzado_notas["certificado_valido_p2"],
-        listado_cruzado_notas["diferido"],
+
+    # Evaluar las condiciones
+    listado_cruzado_notas = _determinar_condiciones_de_promocion(
+        df=listado_cruzado_notas,
+        condicion=condicion,
+        posibles_condiciones=posibles_condiciones_para_promocionar,
     )
-    if condicion == "final":
-        rec = listado_cruzado_notas["nota_recuperatorio"]
-    elif condicion == "preliminar":
-        rec = pd.Series([np.nan] * len(listado_cruzado_notas))
-
-    for cond_prom in posibles_condiciones_para_promocionar:
-        # Crear columna con "placeholder" ("pendiente")
-        listado_cruzado_notas[cond_prom] = "pendiente"
-        # Crear las distintas condiciones de libre, libre_por_nota y regular
-        if condicion == "preliminar":
-            condicion_libre = (p1.isna()) & (p2.isna() & ~cert1 & ~cert2)
-            condicion_libre_por_nota = (
-                ((p1.isna()) & (p2 < 4) & ~cert1 & ~cert2)
-                | ((p1 < 4) & (p2.isna()) & ~cert1 & ~cert2)
-                | ((p1 < 4) & (p2 < 4) & ~cert1 & ~cert2)
-            )
-            condicion_regular = (p1 >= 4) & (p2 >= 4)
-        elif condicion == "final":
-            condicion_libre = (
-                ((p1.isna()) & (p2.isna()))
-                | ((p1 >= 4) & (p2.isna()) & (rec.isna()))
-                | ((p1.isna()) & (p2 >= 4) & (rec.isna()))
-            )
-            condicion_libre_por_nota = (
-                ((p1.isna()) & (p2 < 4))
-                | ((p1 < 4) & (p2.isna()))
-                | ((p1 < 4) & (p2 < 4))
-                | ((p1 >= 4) & (p2 < 4) & (rec.isna()))
-                | ((p1 < 4) & (p2 >= 4) & (rec.isna()))
-                | (rec < 4)
-            )
-            condicion_regular = (
-                ((p1 >= 4) & (p2 >= 4))
-                | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
-                | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
-            )
-            condicion_pendiente = (
-                (pos_dif & p1.isna() & p2.isna() & (rec >= 4))
-                | (pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4))))
-                | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
-            )
-
-        # Crear las distintas condiciones de promoción
-        if cond_prom == "cond_prom_6_y_6":
-            condicion_promocion = (
-                ((p1 >= 6) & (p2 >= 6))
-                | (cert1 & (p2 >= 6) & (rec >= 6))
-                | (cert2 & (p1 >= 6) & (rec >= 6))
-            )
-        elif cond_prom == "cond_prom_6_y_7":
-            condicion_promocion = (
-                ((p1 >= 7) & (p2 >= 6))
-                | ((p1 >= 6) & (p2 >= 7))
-                | (cert1 & (((p2 >= 7) & (rec >= 6)) | ((p2 >= 6) & (rec >= 7))))
-                | (cert2 & (((p1 >= 7) & (rec >= 6)) | ((p1 >= 6) & (rec >= 7))))
-            )
-        elif cond_prom == "cond_prom_7_y_7":
-            condicion_promocion = (
-                ((p1 >= 7) & (p2 >= 7))
-                | (cert1 & (p2 >= 7) & (rec >= 7))
-                | (cert2 & (p1 >= 7) & (rec >= 7))
-            )
-
-        listado_cruzado_notas.loc[condicion_libre, cond_prom] = "libre"
-        listado_cruzado_notas.loc[condicion_libre_por_nota, cond_prom] = (
-            "libre_por_nota"
-        )
-        listado_cruzado_notas.loc[condicion_regular, cond_prom] = "regular"
-        if condicion == "final":
-            listado_cruzado_notas.loc[condicion_pendiente, cond_prom] = "pendiente"
-        # Sobreescribir los regulares, en caso que cumplan con la condición para promocionar
-        listado_cruzado_notas.loc[condicion_promocion, cond_prom] = "promocion"
     # Agregamos columna para indicar cuál parcial debe recuperar
-    condicion_actual = listado_cruzado_notas.columns[-1]
-    ya_definido = listado_cruzado_notas[condicion_actual] != "pendiente"
-    recupera_p2 = (listado_cruzado_notas[condicion_actual] == "pendiente") & (
-        (listado_cruzado_notas["parcial_2"] < 4)
-        | (listado_cruzado_notas["parcial_2"].isna())
-    )
-    listado_cruzado_notas["recuperatorio"] = np.select(
-        condlist=[ya_definido, recupera_p2],
-        choicelist=[np.nan, 2],
-        default=1,
-    )
+    listado_cruzado_notas = _determinar_cual_parcial_recupera(listado_cruzado_notas)
+
     # Crear "resumen"
-    resumen_list = []
-    for cond_prom in posibles_condiciones_para_promocionar:
-        resumen_list.append(
-            listado_cruzado_notas[cond_prom].value_counts().rename(cond_prom)
-        )
-    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
+    resumen_df = _generar_resumen_condiciones(
+        df=listado_cruzado_notas,
+        condiciones=posibles_condiciones_para_promocionar,
+    )
     # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
     if condicion == "final":
-        listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
-            _calcular_promedio, axis=1
-        )
-        # Redondear (pandas redondea 0.5 para arriba -> ajuste del +0.05)
-        listado_cruzado_notas["promedio"] = (
-            listado_cruzado_notas["promedio"] + 0.05
-        ).round()
-        listado_cruzado_notas = listado_cruzado_notas.rename(
-            columns={cond_promocion: "condicion"}
+        listado_cruzado_notas = _aplicar_calculo_promedio_y_renombrar(
+            df=listado_cruzado_notas,
+            columna_condicion_original=cond_promocion,  # type: ignore
         )
     dfs_finales = {
         "resumen": resumen_df,
@@ -352,41 +231,55 @@ def _aplicar_correcciones(
     return dfs
 
 
-def _calcular_promedio(row):
-    p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
+def _aplicar_calculo_promedio_y_renombrar(
+    df: pd.DataFrame,
+    columna_condicion_original: str,
+) -> pd.DataFrame:
+    """
+    Calcula el promedio por fila según reglas específicas,
+    redondea y renombra la columna de condición a 'condicion'.
+    """
 
-    if pd.notna(p1) and pd.notna(p2) and 4 <= p1 <= 10 and 4 <= p2 <= 10:
-        return (p1 + p2) / 2
-    elif p1 > 3 and pd.notna(rec) and rec > 3:
-        return (p1 + rec) / 2
-    elif p2 > 3 and pd.notna(rec) and rec > 3:
-        return (p2 + rec) / 2
-    elif p1 < 4 and p2 < 4 and p1 <= p2:
-        return p2
-    elif p1 < 4 and p2 < 4 and p1 >= p2:
-        return p1
-    elif p1 < 4 and p2 > 3 and pd.isna(rec):
-        return p1
-    elif p1 > 3 and p2 < 4 and pd.isna(rec):
-        return p2
-    elif p1 < 4 and rec < 4 and p1 >= rec:
-        return p1
-    elif p1 < 4 and rec < 4 and p1 <= rec:
-        return rec
-    elif p2 < 4 and rec < 4 and p2 >= rec:
-        return p2
-    elif p2 < 4 and rec < 4 and p2 <= rec:
-        return rec
-    elif p1 > 3 and pd.isna(p2) and rec < 4:
-        return rec
-    elif pd.isna(p1) and p2 > 3 and rec < 4:
-        return rec
-    elif p1 < 4 and pd.isna(p2) and pd.isna(rec):
-        return p1
-    elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
-        return p2
-    else:
-        return np.nan
+    def _calcular_promedio(row):
+        p1, p2, rec = row["parcial_1"], row["parcial_2"], row["nota_recuperatorio"]
+
+        if pd.notna(p1) and pd.notna(p2) and 4 <= p1 <= 10 and 4 <= p2 <= 10:
+            return (p1 + p2) / 2
+        elif p1 > 3 and pd.notna(rec) and rec > 3:
+            return (p1 + rec) / 2
+        elif p2 > 3 and pd.notna(rec) and rec > 3:
+            return (p2 + rec) / 2
+        elif p1 < 4 and p2 < 4 and p1 <= p2:
+            return p2
+        elif p1 < 4 and p2 < 4 and p1 >= p2:
+            return p1
+        elif p1 < 4 and p2 > 3 and pd.isna(rec):
+            return p1
+        elif p1 > 3 and p2 < 4 and pd.isna(rec):
+            return p2
+        elif p1 < 4 and rec < 4 and p1 >= rec:
+            return p1
+        elif p1 < 4 and rec < 4 and p1 <= rec:
+            return rec
+        elif p2 < 4 and rec < 4 and p2 >= rec:
+            return p2
+        elif p2 < 4 and rec < 4 and p2 <= rec:
+            return rec
+        elif p1 > 3 and pd.isna(p2) and rec < 4:
+            return rec
+        elif pd.isna(p1) and p2 > 3 and rec < 4:
+            return rec
+        elif p1 < 4 and pd.isna(p2) and pd.isna(rec):
+            return p1
+        elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
+            return p2
+        else:
+            return np.nan
+
+    df["promedio"] = df.apply(_calcular_promedio, axis=1)
+    df["promedio"] = (df["promedio"] + 0.05).round()
+    df = df.rename(columns={columna_condicion_original: "condicion"})
+    return df
 
 
 def _corregir_alumnos_duplicados_en_campus(
@@ -592,6 +485,122 @@ def _crear_listado_cruzado(
     return listado_cruzado[cols_listado_cruzado]
 
 
+def _determinar_condiciones_de_promocion(
+    df: pd.DataFrame,
+    condicion: Literal["preliminar", "final"],
+    posibles_condiciones: list[str],
+) -> pd.DataFrame:
+    p1, p2 = df["parcial_1"], df["parcial_2"]
+    cert1, cert2 = df["certificado_valido_p1"], df["certificado_valido_p2"]
+    pos_dif = df["diferido"]
+    rec = (
+        df["nota_recuperatorio"]
+        if condicion == "final"
+        else pd.Series([np.nan] * len(df))
+    )
+
+    for cond_prom in posibles_condiciones:
+        df[cond_prom] = "pendiente"
+
+        if condicion == "preliminar":
+            condicion_libre = (p1.isna()) & (p2.isna() & ~cert1 & ~cert2)
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2.isna()) & ~cert1 & ~cert2)
+                | ((p1 < 4) & (p2 < 4) & ~cert1 & ~cert2)
+            )
+            condicion_regular = (p1 >= 4) & (p2 >= 4)
+        else:  # condicion == "final"
+            condicion_libre = (
+                ((p1.isna()) & (p2.isna()))
+                | ((p1 >= 4) & (p2.isna()) & (rec.isna()))
+                | ((p1.isna()) & (p2 >= 4) & (rec.isna()))
+            )
+            condicion_libre_por_nota = (
+                ((p1.isna()) & (p2 < 4))
+                | ((p1 < 4) & (p2.isna()))
+                | ((p1 < 4) & (p2 < 4))
+                | ((p1 >= 4) & (p2 < 4) & (rec.isna()))
+                | ((p1 < 4) & (p2 >= 4) & (rec.isna()))
+                | (rec < 4)
+            )
+            condicion_regular = (
+                ((p1 >= 4) & (p2 >= 4))
+                | ((p1 >= 4) & ((p2 < 4) | p2.isna()) & (rec >= 4))
+                | (((p1 < 4) | p1.isna()) & (p2 >= 4) & (rec >= 4))
+            )
+            condicion_pendiente = (
+                (pos_dif & p1.isna() & p2.isna() & (rec >= 4))
+                | (pos_dif & (((rec >= 4) & (p1 < 4)) | ((rec < 4) & (p1 >= 4))))
+                | (pos_dif & (((rec >= 4) & (p2 < 4)) | ((rec < 4) & (p2 >= 4))))
+            )
+
+        # Condiciones de promoción
+        if cond_prom == "cond_prom_6_y_6":
+            condicion_promocion = (
+                ((p1 >= 6) & (p2 >= 6))
+                | (cert1 & (p2 >= 6) & (rec >= 6))
+                | (cert2 & (p1 >= 6) & (rec >= 6))
+            )
+        elif cond_prom == "cond_prom_6_y_7":
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 6))
+                | ((p1 >= 6) & (p2 >= 7))
+                | (cert1 & (((p2 >= 7) & (rec >= 6)) | ((p2 >= 6) & (rec >= 7))))
+                | (cert2 & (((p1 >= 7) & (rec >= 6)) | ((p1 >= 6) & (rec >= 7))))
+            )
+        elif cond_prom == "cond_prom_7_y_7":
+            condicion_promocion = (
+                ((p1 >= 7) & (p2 >= 7))
+                | (cert1 & (p2 >= 7) & (rec >= 7))
+                | (cert2 & (p1 >= 7) & (rec >= 7))
+            )
+
+        # Aplicar condiciones al DataFrame
+        df.loc[condicion_libre, cond_prom] = "libre"
+        df.loc[condicion_libre_por_nota, cond_prom] = "libre_por_nota"
+        df.loc[condicion_regular, cond_prom] = "regular"
+        if condicion == "final":
+            df.loc[condicion_pendiente, cond_prom] = "pendiente"
+        df.loc[condicion_promocion, cond_prom] = "promocion"
+
+    return df
+
+
+def _determinar_cual_parcial_recupera(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Agrega la columna 'recuperatorio' al DataFrame.
+    Indica qué parcial debe recuperar el estudiante:
+    - 1 si debe recuperar el parcial 1,
+    - 2 si debe recuperar el parcial 2,
+    - np.nan si ya tiene definida su condición.
+    """
+    ultima_columna_condicion = df.columns[-1]
+    ya_definido = df[ultima_columna_condicion] != "pendiente"
+    recupera_p2 = (df[ultima_columna_condicion] == "pendiente") & (
+        (df["parcial_2"] < 4) | (df["parcial_2"].isna())
+    )
+    df["recuperatorio"] = np.select(
+        condlist=[ya_definido, recupera_p2],
+        choicelist=[np.nan, 2],
+        default=1,
+    )
+    return df
+
+
+def _generar_resumen_condiciones(
+    df: pd.DataFrame,
+    condiciones: list[str],
+) -> pd.DataFrame:
+    """
+    Genera un DataFrame resumen con los conteos de cada categoría
+    (libre, regular, promocion, etc.) para cada condición de promoción.
+    """
+    resumen_list = [df[cond].value_counts().rename(cond) for cond in condiciones]
+    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
+    return resumen_df
+
+
 def _normalizar_listado_campus(
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list[str],
@@ -604,3 +613,50 @@ def _normalizar_listado_campus(
         cols_autoevaluaciones
     ].replace({"-": np.nan, "Ausente": np.nan})
     return listado_campus
+
+
+def _procesar_certificados(
+    listado_cruzado: pd.DataFrame,
+    listado_actas: pd.DataFrame,
+    listado_certificados: pd.DataFrame | None,
+) -> pd.DataFrame:
+    COLS_NOMBRES = (
+        "certificado_valido_p1",
+        "tipo_de_certificado_p1",
+        "certificado_valido_p2",
+        "tipo_de_certificado_p2",
+    )
+    # Crear placeholders
+    for col in COLS_NOMBRES:
+        listado_cruzado[col] = np.nan if "tipo" in col else False
+
+    if listado_certificados is None:
+        return listado_cruzado
+
+    print(
+        f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa: E501
+    )
+
+    # Renombrar las últimas 4 columnas
+    listado_certificados.columns.values[-4:] = COLS_NOMBRES
+
+    # Convertir columnas de tipo str a minúscula
+    for col in COLS_NOMBRES:
+        listado_certificados[col] = listado_certificados[col].str.lower()
+
+    # Merge temporal
+    listado_cruzado_temp = pd.merge(
+        left=listado_actas,
+        right=listado_certificados,
+        how="left",
+        left_on="Dni",
+        right_on="Dni",
+    )
+
+    # Actualizar los valores en el DataFrame final
+    for col in ["certificado_valido_p1", "certificado_valido_p2"]:
+        listado_cruzado[col] = np.where(listado_cruzado_temp[col] == "si", True, False)
+    for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
+        listado_cruzado[col] = listado_cruzado_temp[col]
+
+    return listado_cruzado
