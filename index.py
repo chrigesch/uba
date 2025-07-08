@@ -11,7 +11,12 @@ from autoevaluaciones_parcial import (
 )
 
 
-OPERACIONES_DISPONIBLES = ("Parcial 1", "Parcial 2", "Condiciones preliminares")
+OPERACIONES_DISPONIBLES = (
+    "Parcial 1",
+    "Parcial 2",
+    "Condiciones preliminares",
+    "Diferencias entre dos actas",
+)
 
 
 def main():
@@ -184,6 +189,46 @@ def main():
             data=excel_bytes,
             file_name=nombre_archivo,
         )
+    # Analizar diferencias entre dos actas
+    if operacion == "Diferencias entre dos actas":
+        col_1, col_2 = st.columns(2)
+        with col_1:
+            # Create file uploader object
+            uploaded_file_actas_1 = st.file_uploader(
+                label="**Cargar el PRIMER Excel de 'actas'**",
+                type=["xlsx"],
+            )
+            if uploaded_file_actas_1 is not None:
+                listado_actas_1 = pd.read_excel(io=uploaded_file_actas_1)
+        with col_2:
+            # Create file uploader object
+            uploaded_file_actas_2 = st.file_uploader(
+                label="**Cargar el SEGUNDO Excel de 'actas'**",
+                type=["xlsx"],
+            )
+            if uploaded_file_actas_2 is not None:
+                listado_actas_2 = pd.read_excel(io=uploaded_file_actas_2)
+
+        if (uploaded_file_actas_1 is None) | (uploaded_file_actas_2 is None):
+            st.stop()
+
+        listado_actas_1["acta"] = 1
+        listado_actas_2["acta"] = 2
+        listado_actas_juntas = pd.concat([listado_actas_1, listado_actas_2], axis=0)
+        alumnos_diferentes = listado_actas_juntas["Dni"].drop_duplicates(keep=False)
+        listado_diferencias = listado_actas_juntas[
+            listado_actas_juntas["Dni"].isin(alumnos_diferentes)
+        ]
+
+        if len(listado_diferencias) == 0:
+            texto = "Las dos actas son idénticas"
+            st.success(body=texto)
+        else:
+            texto = (
+                f"Cuidado: hay {len(listado_diferencias)} diferencias entre las actas."
+            )
+            st.warning(body=texto)
+            st.dataframe(listado_diferencias)
 
 
 if __name__ == "__main__":
