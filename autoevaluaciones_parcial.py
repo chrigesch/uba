@@ -174,12 +174,10 @@ def cruzar_listas_actas_notas(
     listado_cruzado_notas = _determinar_cual_parcial_recupera(listado_cruzado_notas)
 
     # Crear "resumen"
-    resumen_list = []
-    for cond_prom in posibles_condiciones_para_promocionar:
-        resumen_list.append(
-            listado_cruzado_notas[cond_prom].value_counts().rename(cond_prom)
-        )
-    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
+    resumen_df = _generar_resumen_condiciones(
+        df=listado_cruzado_notas,
+        condiciones=posibles_condiciones_para_promocionar,
+    )
     # Calcular los promedios para el listado de condiciones finales y renombrar columna de condición para promocionar
     if condicion == "final":
         listado_cruzado_notas["promedio"] = listado_cruzado_notas.apply(
@@ -580,6 +578,19 @@ def _determinar_cual_parcial_recupera(df: pd.DataFrame) -> pd.DataFrame:
         default=1,
     )
     return df
+
+
+def _generar_resumen_condiciones(
+    df: pd.DataFrame,
+    condiciones: list[str],
+) -> pd.DataFrame:
+    """
+    Genera un DataFrame resumen con los conteos de cada categoría
+    (libre, regular, promocion, etc.) para cada condición de promoción.
+    """
+    resumen_list = [df[cond].value_counts().rename(cond) for cond in condiciones]
+    resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
+    return resumen_df
 
 
 def _normalizar_listado_campus(
