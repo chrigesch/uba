@@ -171,17 +171,8 @@ def cruzar_listas_actas_notas(
         posibles_condiciones=posibles_condiciones_para_promocionar,
     )
     # Agregamos columna para indicar cuál parcial debe recuperar
-    condicion_actual = listado_cruzado_notas.columns[-1]
-    ya_definido = listado_cruzado_notas[condicion_actual] != "pendiente"
-    recupera_p2 = (listado_cruzado_notas[condicion_actual] == "pendiente") & (
-        (listado_cruzado_notas["parcial_2"] < 4)
-        | (listado_cruzado_notas["parcial_2"].isna())
-    )
-    listado_cruzado_notas["recuperatorio"] = np.select(
-        condlist=[ya_definido, recupera_p2],
-        choicelist=[np.nan, 2],
-        default=1,
-    )
+    listado_cruzado_notas = _determinar_cual_parcial_recupera(listado_cruzado_notas)
+
     # Crear "resumen"
     resumen_list = []
     for cond_prom in posibles_condiciones_para_promocionar:
@@ -567,6 +558,27 @@ def _determinar_condiciones_de_promocion(
             df.loc[condicion_pendiente, cond_prom] = "pendiente"
         df.loc[condicion_promocion, cond_prom] = "promocion"
 
+    return df
+
+
+def _determinar_cual_parcial_recupera(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Agrega la columna 'recuperatorio' al DataFrame.
+    Indica qué parcial debe recuperar el estudiante:
+    - 1 si debe recuperar el parcial 1,
+    - 2 si debe recuperar el parcial 2,
+    - np.nan si ya tiene definida su condición.
+    """
+    ultima_columna_condicion = df.columns[-1]
+    ya_definido = df[ultima_columna_condicion] != "pendiente"
+    recupera_p2 = (df[ultima_columna_condicion] == "pendiente") & (
+        (df["parcial_2"] < 4) | (df["parcial_2"].isna())
+    )
+    df["recuperatorio"] = np.select(
+        condlist=[ya_definido, recupera_p2],
+        choicelist=[np.nan, 2],
+        default=1,
+    )
     return df
 
 
