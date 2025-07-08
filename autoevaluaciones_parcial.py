@@ -141,43 +141,12 @@ def cruzar_listas_actas_notas(
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-    # Crear placeholders para los (posibles) certificados
-    listado_cruzado_notas["certificado_valido_p1"] = False
-    listado_cruzado_notas["tipo_de_certificado_p1"] = np.nan
-    listado_cruzado_notas["certificado_valido_p2"] = False
-    listado_cruzado_notas["tipo_de_certificado_p2"] = np.nan
-    # Agregar los certificados
-    if listado_certificados is not None:
-        print(
-            f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa E501
-        )
-        # Renombrar columnas
-        cols_nombres = [
-            "certificado_valido_p1",
-            "tipo_de_certificado_p1",
-            "certificado_valido_p2",
-            "tipo_de_certificado_p2",
-        ]
-        listado_certificados.columns.values[-4:] = cols_nombres
-        # Convertir contenido de estas columnas en minúscula
-        for col in cols_nombres:
-            listado_certificados[col] = listado_certificados[col].str.lower()
-        # Cruzar las listas
-        listado_cruzado_temp = pd.merge(
-            left=listado_actas,
-            right=listado_certificados,
-            how="left",
-            left_on="Dni",
-            right_on="Dni",
-        )
-        # Introducir contenido del listado_cruzado_temp en listado_cruzado_notas
-        for col in ["certificado_valido_p1", "certificado_valido_p2"]:
-            listado_cruzado_notas[col] = np.where(
-                listado_cruzado_temp[col] == "si", True, False
-            )
-        for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
-            listado_cruzado_notas[col] = listado_cruzado_temp[col]
-
+    # Agregamos los certificados
+    listado_cruzado_notas = _procesar_certificados(
+        listado_cruzado=listado_cruzado_notas,
+        listado_actas=listado_actas,
+        listado_certificados=listado_certificados,
+    )
     # Agregamos columna para indicar si es diferido
     listado_cruzado_notas["diferido"] = np.where(
         listado_cruzado_notas["certificado_valido_p1"]
@@ -613,3 +582,50 @@ def _normalizar_listado_campus(
         cols_autoevaluaciones
     ].replace({"-": np.nan, "Ausente": np.nan})
     return listado_campus
+
+
+def _procesar_certificados(
+    listado_cruzado: pd.DataFrame,
+    listado_actas: pd.DataFrame,
+    listado_certificados: pd.DataFrame | None,
+) -> pd.DataFrame:
+    COLS_NOMBRES = (
+        "certificado_valido_p1",
+        "tipo_de_certificado_p1",
+        "certificado_valido_p2",
+        "tipo_de_certificado_p2",
+    )
+    # Crear placeholders
+    for col in COLS_NOMBRES:
+        listado_cruzado[col] = np.nan if "tipo" in col else False
+
+    if listado_certificados is None:
+        return listado_cruzado
+
+    print(
+        f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa: E501
+    )
+
+    # Renombrar las últimas 4 columnas
+    listado_certificados.columns.values[-4:] = COLS_NOMBRES
+
+    # Convertir columnas de tipo str a minúscula
+    for col in COLS_NOMBRES:
+        listado_certificados[col] = listado_certificados[col].str.lower()
+
+    # Merge temporal
+    listado_cruzado_temp = pd.merge(
+        left=listado_actas,
+        right=listado_certificados,
+        how="left",
+        left_on="Dni",
+        right_on="Dni",
+    )
+
+    # Actualizar los valores en el DataFrame final
+    for col in ["certificado_valido_p1", "certificado_valido_p2"]:
+        listado_cruzado[col] = np.where(listado_cruzado_temp[col] == "si", True, False)
+    for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
+        listado_cruzado[col] = listado_cruzado_temp[col]
+
+    return listado_cruzado
