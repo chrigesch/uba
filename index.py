@@ -39,14 +39,14 @@ def main():
         with col_2:
             # Create file uploader object
             uploaded_file_campus = st.file_uploader(
-                label="**Cargar el Excel con las autoevaluaciones del campus**",
+                label="**Cargar el Excel con las CUATRO autoevaluaciones del campus**",
                 type=["xlsx"],
             )
             if uploaded_file_campus is not None:
                 listado_campus = pd.read_excel(io=uploaded_file_campus)
                 cols = "\n \n".join(listado_campus.columns)
                 st.warning(
-                    f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n \n{cols}"
+                    f"Revisar orden de columnas del listado y corregir, si necesario:\n \n{cols}"
                 )
 
         if (uploaded_file_actas is None) | (uploaded_file_campus is None):
@@ -63,6 +63,17 @@ def main():
             mostrar_alumnos_corregidos=True,
             mostrar_duplicados_campus=True,
         )
+        len_en_actas_pero_no_en_campus = len(
+            resultado["correcciones"]["en_actas_pero_no_en_campus"]
+        )
+        if len_en_actas_pero_no_en_campus == 0:
+            texto = "Todos los alumnos del acta se encontraron en el listado campus"
+            st.success(body=texto)
+        else:
+            texto = f"Cuidado: {len_en_actas_pero_no_en_campus} alumnos en actas, pero NO en el campus:"
+            st.warning(body=texto)
+
+        # Pestañas para todos los resultados
         tab_1, tab_2 = st.tabs(tabs=["**Listas**", "**Correcciones**"])
         with tab_1:
             listados_disponibles = resultado["listas"].keys()
