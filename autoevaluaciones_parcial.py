@@ -655,7 +655,9 @@ def _procesar_certificados(
 
     # Actualizar los valores en el DataFrame final
     for col in ["certificado_valido_p1", "certificado_valido_p2"]:
-        listado_cruzado[col] = np.where(listado_cruzado_temp[col] == "si", True, False)
+        listado_cruzado[col] = np.where(
+            listado_cruzado_temp[col].isin(["si", "sí"]), True, False
+        )
     for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
         listado_cruzado[col] = listado_cruzado_temp[col]
 
