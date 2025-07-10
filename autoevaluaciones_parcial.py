@@ -592,11 +592,12 @@ def _generar_resumen_condiciones(
     df: pd.DataFrame,
     condiciones: list[str],
 ) -> pd.DataFrame:
-    """
-    Genera un DataFrame resumen con los conteos de cada categoría
-    (libre, regular, promocion, etc.) para cada condición de promoción.
-    """
-    resumen_list = [df[cond].value_counts().rename(cond) for cond in condiciones]
+    VALORES_POSIBLES = ("libre", "libre_por_nota", "regular", "pendiente", "promocion")
+
+    resumen_list = [
+        df[cond].value_counts().reindex(VALORES_POSIBLES, fill_value=0).rename(cond)
+        for cond in condiciones
+    ]
     resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
     return resumen_df
 
@@ -655,7 +656,9 @@ def _procesar_certificados(
 
     # Actualizar los valores en el DataFrame final
     for col in ["certificado_valido_p1", "certificado_valido_p2"]:
-        listado_cruzado[col] = np.where(listado_cruzado_temp[col] == "si", True, False)
+        listado_cruzado[col] = np.where(
+            listado_cruzado_temp[col].isin(["si", "sí"]), True, False
+        )
     for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
         listado_cruzado[col] = listado_cruzado_temp[col]
 
