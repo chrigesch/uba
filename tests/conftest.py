@@ -53,7 +53,7 @@ def df_listado_campus_completo():
 
 
 @pytest.fixture
-def listado_campus_realista():
+def listado_campus_autoevaluaciones_realista():
     return pd.DataFrame(
         {
             "Nombre": ["Ana", "Luis", "Mara"],
@@ -89,6 +89,73 @@ def listado_campus_realista():
             "Última descarga de este curso": ["2025-07-01"] * 3,
         }
     )
+
+
+@pytest.fixture
+def listado_campus_notas_preliminar_realista():
+    data = {
+        "Nombre": ["Ana", "Bruno", "Carla"],
+        "Apellido(s)": ["Pérez", "Gómez", "Rojas"],
+        "Número de ID": [123, 456, 789],
+        "Institución": ["Inst A"] * 3,
+        "Departamento": ["Depto X"] * 3,
+        "Dirección de correo": ["ana@mail.com", "bruno@mail.com", "carla@mail.com"],
+        "Tarea:Calificación del Primer Parcial - Primer Cuatrimestre 2025 (Real)": [
+            6,
+            7,
+            None,
+        ],
+        "Tarea:Calificación del Segundo Parcial - Primer Cuatrimestre 2025 (Real)": [
+            6,
+            8,
+            4,
+        ],
+        "Última descarga de este curso": ["2025-07-01"] * 3,
+    }
+    return pd.DataFrame(data)
+
+
+@pytest.fixture
+def listado_campus_notas_final_realista():
+    data = {
+        "Nombre": ["Ana", "Bruno", "Carla"],
+        "Apellido(s)": ["Pérez", "Gómez", "Rojas"],
+        "Número de ID": [123, 456, 789],
+        "Institución": ["Inst A"] * 3,
+        "Departamento": ["Depto X"] * 3,
+        "Dirección de correo": ["ana@mail.com", "bruno@mail.com", "carla@mail.com"],
+        "Tarea:Calificación del Primer Parcial - Primer Cuatrimestre 2024 (Real)": [
+            6,
+            7,
+            3,
+        ],
+        "Tarea:Calificación del Segundo Parcial - Primer Cuatrimestre 2024 (Real)": [
+            5,
+            6,
+            4,
+        ],
+        "Tarea:Calificación del Recuperatorio - Primer Cuatrimestre 2024 (Real)": [
+            6,
+            None,
+            6,
+        ],
+        "Última descarga de este curso": ["2024-06-30"] * 3,
+    }
+    return pd.DataFrame(data)
+
+
+@pytest.fixture
+def listado_certificados_realista():
+    data = {
+        "C": ["01", "01", "01"],
+        "AyN": ["Pérez Ana", "Gómez Bruno", "Rojas Carla"],
+        "Dni": [123, 456, 789],
+        "Certificado_valido_1erParcial": ["sí", "Si", "no"],
+        "Tipo_de_certificado_1erParcial": ["médico", "médico", "otro"],
+        "Certificado_valido_2doParcial": ["no", "sí", "no"],
+        "Tipo_de_certificado_2doParcial": ["", "médico", ""],
+    }
+    return pd.DataFrame(data)
 
 
 @pytest.fixture
