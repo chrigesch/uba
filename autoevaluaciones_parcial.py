@@ -583,17 +583,26 @@ def _generar_resumen_condiciones(
 
 def _generar_resumen_habilitados(df: pd.DataFrame) -> pd.DataFrame:
     resumen = df[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
+    resumen.columns.name = None
+
     resumen["total"] = resumen.sum(axis=1)
     resumen.loc["total"] = resumen.sum(axis=0)
-    try:
-        resumen = resumen[[True, False, "total"]].rename(
-            columns={True: "habilitados", False: "inhabilitados"}
-        )
-    except KeyError:
-        try:
-            resumen = resumen[[False, "total"]].rename(columns={False: "inhabilitados"})
-        except KeyError:
-            resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
+
+    columnas_renombradas = {}
+
+    if True in resumen.columns:
+        columnas_renombradas[True] = "habilitados"
+    if False in resumen.columns:
+        columnas_renombradas[False] = "inhabilitados"
+
+    resumen = resumen.rename(columns=columnas_renombradas)
+
+    columnas_finales = [
+        col
+        for col in ["habilitados", "inhabilitados", "total"]
+        if col in resumen.columns
+    ]
+    resumen = resumen[columnas_finales]
     return resumen.reset_index()
 
 
