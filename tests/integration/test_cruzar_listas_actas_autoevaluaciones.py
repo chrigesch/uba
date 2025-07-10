@@ -4,11 +4,11 @@ from autoevaluaciones_parcial import cruzar_listas_actas_autoevaluaciones
 
 def test_cruzar_listas_actas_autoevaluaciones_basico(
     listado_actas_realista,
-    listado_campus_realista,
+    listado_campus_autoevaluaciones_realista,
 ):
     resultado = cruzar_listas_actas_autoevaluaciones(
         listado_actas=listado_actas_realista,
-        listado_campus=listado_campus_realista,
+        listado_campus=listado_campus_autoevaluaciones_realista,
         parcial=1,
         crear_excel=False,
     )
@@ -36,10 +36,10 @@ def test_cruzar_listas_actas_autoevaluaciones_basico(
 
 def test_cruzar_listas_actas_autoevaluaciones_estudiante_inhabilitado(
     listado_actas_realista,
-    listado_campus_realista,
+    listado_campus_autoevaluaciones_realista,
 ):
     # Modificar el listado_campus para que un/a estudiante tenga una autoevaluación faltante
-    listado_campus_modificado = listado_campus_realista.copy()
+    listado_campus_modificado = listado_campus_autoevaluaciones_realista.copy()
     listado_campus_modificado.loc[
         1, "Cuestionario:Autoevaluación Unidad 2 - 1er. Cuatrimestre de 2025 (Real)"
     ] = pd.NA
