@@ -18,21 +18,8 @@ def cruzar_listas_actas_autoevaluaciones(
     print(
         f"Revisar orden de columnas del 'listado_campus' y corregir, si necesario:\n{72 * '*'}\n{listado_campus.columns}"  # noqa E501
     )
-    COLS_POR_PARCIAL = {
-        1: ["au_1", "au_2", "au_3_p1", "au_3_p2"],
-        2: ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"],
-        "recuperatorio": [
-            "au_1",
-            "au_2",
-            "au_3_p1",
-            "au_3_p2",
-            "au_6_p1",
-            "au_6_p2",
-            "au_7_p1",
-            "au_7_p2",
-        ],
-    }
-    cols_autoevaluaciones = COLS_POR_PARCIAL[parcial]
+
+    cols_autoevaluaciones = _obtener_columnas_por_parcial(parcial)
 
     listado_campus = _normalizar_listado_campus(
         listado_campus=listado_campus,
@@ -51,30 +38,11 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
     )
-
-    # Determinar alumnos inhabilitados
-    listado_cruzado["habilitada/o"] = (
-        listado_cruzado[cols_autoevaluaciones].notna().all(axis=1)
+    listado_cruzado = _determinar_alumnos_habilitados(
+        df=listado_cruzado,
+        columnas=cols_autoevaluaciones,
     )
-    listado_cruzado = listado_cruzado.sort_values(
-        by=["C", "habilitada/o", "AyN"], ascending=[True, False, True]
-    ).reset_index(drop=True)
-    # Crear el resumen de todas las comisiones
-    resumen = (
-        listado_cruzado[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
-    )
-    resumen["total"] = resumen.sum(axis=1)
-    resumen.loc["total"] = resumen.sum(axis=0)
-    try:
-        resumen = resumen[[True, False, "total"]].rename(
-            columns={True: "habilitados", False: "inhabilitados"}
-        )
-    except Exception:
-        try:
-            resumen = resumen[[False, "total"]].rename(columns={False: "inhabilitados"})
-        except Exception:
-            resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
-    resumen = resumen.reset_index()
+    resumen = _generar_resumen_habilitados(listado_cruzado)
 
     # Crear un diccionario con los DataFrames para poder crear el excel
     dfs_finales = _crear_diccionario_con_comisiones_y_resumen(
@@ -485,6 +453,17 @@ def _crear_listado_cruzado(
     return listado_cruzado[cols_listado_cruzado]
 
 
+def _determinar_alumnos_habilitados(
+    df: pd.DataFrame,
+    columnas: list[str],
+) -> pd.DataFrame:
+    df["habilitada/o"] = df[columnas].notna().all(axis=1)
+    df = df.sort_values(
+        by=["C", "habilitada/o", "AyN"], ascending=[True, False, True]
+    ).reset_index(drop=True)
+    return df
+
+
 def _determinar_condiciones_de_promocion(
     df: pd.DataFrame,
     condicion: Literal["preliminar", "final"],
@@ -602,6 +581,22 @@ def _generar_resumen_condiciones(
     return resumen_df
 
 
+def _generar_resumen_habilitados(df: pd.DataFrame) -> pd.DataFrame:
+    resumen = df[["C", "habilitada/o"]].value_counts().unstack(fill_value=0)
+    resumen["total"] = resumen.sum(axis=1)
+    resumen.loc["total"] = resumen.sum(axis=0)
+    try:
+        resumen = resumen[[True, False, "total"]].rename(
+            columns={True: "habilitados", False: "inhabilitados"}
+        )
+    except KeyError:
+        try:
+            resumen = resumen[[False, "total"]].rename(columns={False: "inhabilitados"})
+        except KeyError:
+            resumen = resumen[[True, "total"]].rename(columns={True: "habilitados"})
+    return resumen.reset_index()
+
+
 def _normalizar_listado_campus(
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list[str],
@@ -614,6 +609,23 @@ def _normalizar_listado_campus(
         cols_autoevaluaciones
     ].replace({"-": np.nan, "Ausente": np.nan})
     return listado_campus
+
+
+def _obtener_columnas_por_parcial(parcial: Literal[1, 2, "recuperatorio"]) -> list[str]:
+    return {
+        1: ["au_1", "au_2", "au_3_p1", "au_3_p2"],
+        2: ["au_6_p1", "au_6_p2", "au_7_p1", "au_7_p2"],
+        "recuperatorio": [
+            "au_1",
+            "au_2",
+            "au_3_p1",
+            "au_3_p2",
+            "au_6_p1",
+            "au_6_p2",
+            "au_7_p1",
+            "au_7_p2",
+        ],
+    }[parcial]
 
 
 def _procesar_certificados(
