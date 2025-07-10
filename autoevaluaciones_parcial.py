@@ -592,11 +592,12 @@ def _generar_resumen_condiciones(
     df: pd.DataFrame,
     condiciones: list[str],
 ) -> pd.DataFrame:
-    """
-    Genera un DataFrame resumen con los conteos de cada categoría
-    (libre, regular, promocion, etc.) para cada condición de promoción.
-    """
-    resumen_list = [df[cond].value_counts().rename(cond) for cond in condiciones]
+    VALORES_POSIBLES = ("libre", "libre_por_nota", "regular", "pendiente", "promocion")
+
+    resumen_list = [
+        df[cond].value_counts().reindex(VALORES_POSIBLES, fill_value=0).rename(cond)
+        for cond in condiciones
+    ]
     resumen_df = pd.concat(resumen_list, axis=1).reset_index(names="index")
     return resumen_df
 
