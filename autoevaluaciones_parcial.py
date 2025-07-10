@@ -571,7 +571,7 @@ def _generar_resumen_condiciones(
     df: pd.DataFrame,
     condiciones: list[str],
 ) -> pd.DataFrame:
-    VALORES_POSIBLES = ("libre", "libre_por_nota", "regular", "pendiente", "promocion")
+    VALORES_POSIBLES = ("promocion", "regular", "libre_por_nota", "libre", "pendiente")
 
     resumen_list = [
         df[cond].value_counts().reindex(VALORES_POSIBLES, fill_value=0).rename(cond)
