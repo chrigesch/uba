@@ -257,17 +257,14 @@ def _corregir_alumnos_duplicados_en_campus(
     cols_autoevaluaciones: list[str],
     mostrar_duplicados_campus: bool = False,
 ) -> dict:
-    # Copia principal (una sola vez)
-    df = listado_campus.copy()
+    # Calcular número de NaN por fila en las columnas de autoevaluación (sin asignarlo)
+    n_nan = listado_campus[cols_autoevaluaciones].isna().sum(axis=1)
 
-    # Calcular el número de NaN por fila (una sola vez)
-    df["n_nan"] = df[cols_autoevaluaciones].isna().sum(axis=1)
+    # Seleccionar los índices de las filas “mejores” (menos NaN) para cada alumno
+    mejores_idx = n_nan.groupby(listado_campus["Número de ID"]).idxmin()
 
-    # Ordenar de modo que se mantenga la fila con menos NaN para cada alumno
-    df_sorted = df.sort_values(by=["Número de ID", "n_nan"], ascending=[True, True])
-
-    # Eliminar duplicados manteniendo la mejor fila (menos NaN)
-    df_unique = df_sorted.drop_duplicates(subset="Número de ID", keep="first")
+    # Filtrar el DataFrame conservando solo las mejores filas
+    df_corregido = listado_campus.loc[mejores_idx].reset_index(drop=True).copy()
 
     # Detectar duplicados originales (antes de corregir)
     dni_duplicados = (
@@ -280,11 +277,8 @@ def _corregir_alumnos_duplicados_en_campus(
     if mostrar_duplicados_campus and not df_duplicados.empty:
         print(f"Alumnos duplicados:\n{'*' * 19}\n{df_duplicados.to_string()}")
 
-    # Limpiar la columna auxiliar
-    df_unique = df_unique.drop(columns="n_nan")
-
     return {
-        "listado_campus": df_unique.reset_index(drop=True),
+        "listado_campus": df_corregido,
         "duplicados": df_duplicados.reset_index(drop=True),
     }
 
@@ -292,76 +286,79 @@ def _corregir_alumnos_duplicados_en_campus(
 def _corregir_dni_en_listado_campus(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
-    mostrar_alumnos_no_encontrados: bool,
-    mostrar_alumnos_corregidos: bool,
+    mostrar_alumnos_no_encontrados: bool = False,
+    mostrar_alumnos_corregidos: bool = False,
 ) -> dict:
-    # Determinar cuáles DNIs están en el listado del campus, pero no en el listado de actas
-    _listado_campus = listado_campus.copy(deep=True)
-    dni_no_encontrados = listado_campus.copy()[
-        ~_listado_campus["Número de ID"].isin(listado_actas["Dni"])
-    ]
-    if mostrar_alumnos_no_encontrados:
-        print(f"Alumnos no encontrados:\n{23 * '*'}\n{dni_no_encontrados.to_string()}")
+    # Copia principal
+    df = listado_campus.copy()
 
-    # (1) Corregir los DNIs, utilizando la dirección de correo para encontrarlos en el listado de actas
-    dni_corregido = []
-    # Crear un diccionario {correo: dni_correcto} para búsqueda rápida
-    correo_a_dni = dict(zip(listado_actas["e-mail"], listado_actas["Dni"]))
-    # Iterar por filas en lugar de hacer múltiples filtrados
-    for idx, row in dni_no_encontrados.drop_duplicates("Número de ID").iterrows():
-        dni_actual = row["Número de ID"]
-        correo = row["Dirección de correo"]
-        dni_correcto = correo_a_dni.get(correo)
+    # --- 1️⃣ Detectar alumnos no encontrados ---
+    dni_campus = df["Número de ID"]
+    dni_actas = listado_actas["Dni"]
 
-        if dni_correcto:
-            dni_corregido.append(dni_correcto)
-            mask = _listado_campus["Número de ID"] == dni_actual
-            _listado_campus.loc[mask, "Número de ID"] = dni_correcto
+    mask_no_encontrados = ~dni_campus.isin(dni_actas)
+    df_no_encontrados = df.loc[mask_no_encontrados]
 
-    # (2) A los que no fueron corregidos con la dirección de correo, comprobar si el DNI tiene un dígito de más y eliminar el último # noqa E501
-    # Asegurarse de que los valores sean strings
-    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].astype(str)
-    # Crear una copia de la columna original
-    original = _listado_campus["Número de ID"].copy(deep=True)
-    # Aplicar la transformación
-    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].apply(
-        lambda x: x[:-1] if len(x) == 9 and x.isdigit() else x
+    if mostrar_alumnos_no_encontrados and not df_no_encontrados.empty:
+        print(f"Alumnos no encontrados:\n{'*' * 23}\n{df_no_encontrados.to_string()}")
+
+    # --- 2️⃣ Corregir DNIs usando e-mail ---
+    # Crear mapeo correo → DNI correcto (diccionario)
+    correo_a_dni = pd.Series(listado_actas["Dni"].values, index=listado_actas["e-mail"])
+
+    # Mapear directamente en la subserie correspondiente
+    mask_no_encontrados_idx = df_no_encontrados.index
+    correos = df.loc[mask_no_encontrados_idx, "Dirección de correo"]
+    dni_corregidos_por_correo = correos.map(correo_a_dni)
+
+    # Actualizar solo donde se encontró correspondencia
+    mask_corregibles = dni_corregidos_por_correo.notna()
+    df.loc[mask_no_encontrados_idx[mask_corregibles], "Número de ID"] = (
+        dni_corregidos_por_correo[mask_corregibles].astype(int)
     )
-    # Obtener los valores que cambiaron y agregarlos a dni_corregido
-    cambiados = (
-        _listado_campus[original != _listado_campus["Número de ID"]]["Número de ID"]
-        .astype(int)
-        .tolist()
-    )
-    dni_corregido.extend(cambiados)
-    # Volver a transformar todos los valores de la columna a int
-    _listado_campus["Número de ID"] = _listado_campus["Número de ID"].astype(int)
 
-    # Determinar si hay alumnos que salen en el acta, pero no en el campus
-    en_actas_pero_no_en_campus = listado_actas[
-        ~listado_actas["Dni"].isin(_listado_campus["Número de ID"])
+    # Guardar los DNIs corregidos por correo
+    dni_corregidos = dni_corregidos_por_correo.dropna().astype(int).tolist()
+
+    # --- 3️⃣ Intentar corregir DNIs con un dígito de más ---
+    # Transformar a str una sola vez
+    dni_str = df["Número de ID"].astype(str)
+    dni_fix = dni_str.where(
+        ~(dni_str.str.len() == 9) | ~dni_str.str.isdigit(), dni_str.str[:-1]
+    )
+    # Identificar cambios y actualizar
+    mask_dni_cambiados = dni_fix != dni_str
+    if mask_dni_cambiados.any():
+        df.loc[mask_dni_cambiados, "Número de ID"] = dni_fix[mask_dni_cambiados].astype(
+            int
+        )
+        dni_corregidos.extend(df.loc[mask_dni_cambiados, "Número de ID"].tolist())
+
+    # --- 4️⃣ Detectar alumnos que están en actas pero no en campus ---
+    en_actas_no_en_campus = listado_actas.loc[
+        ~listado_actas["Dni"].isin(df["Número de ID"])
     ]
-    if len(en_actas_pero_no_en_campus) == 0:
+
+    if en_actas_no_en_campus.empty:
         texto = "Todos los alumnos del acta se encontraron en el listado campus"
         print(f"\n{texto}\n{len(texto) * '*'}\n")
     else:
         texto = "Alumnos en actas, pero NO en el campus:"
-        print(
-            f"{texto}\n{len(texto) * '*'}\n{en_actas_pero_no_en_campus.to_string()}"  # noqa E501
-        )
+        print(f"{texto}\n{len(texto) * '*'}\n{en_actas_no_en_campus.to_string()}")
 
-    df_corregidos = _listado_campus[_listado_campus["Número de ID"].isin(dni_corregido)]
+    # --- 5️⃣ Alumnos efectivamente corregidos ---
+    df_corregidos = df[df["Número de ID"].isin(dni_corregidos)]
 
-    if mostrar_alumnos_corregidos:
+    if mostrar_alumnos_corregidos and not df_corregidos.empty:
         texto = "Alumnos corregidos:"
-        print(f"{texto}\n{len(texto) * '*'}\n{df_corregidos.to_string()}")  # noqa E501
-    dfs = {
-        "listado_campus": _listado_campus,
-        "corregidos": df_corregidos,
-        "en_actas_pero_no_en_campus": en_actas_pero_no_en_campus,
-        "no_encontrados": dni_no_encontrados,
+        print(f"{texto}\n{len(texto) * '*'}\n{df_corregidos.to_string()}")
+
+    return {
+        "listado_campus": df.reset_index(drop=True),
+        "corregidos": df_corregidos.reset_index(drop=True),
+        "en_actas_pero_no_en_campus": en_actas_no_en_campus.reset_index(drop=True),
+        "no_encontrados": df_no_encontrados.reset_index(drop=True),
     }
-    return dfs
 
 
 def _crear_diccionario_con_comisiones_y_resumen(
@@ -450,10 +447,10 @@ def _crear_listado_cruzado(
     )
     cols_listado_cruzado = ["C", "AyN", "Dni"]
     if incluir_correo_campus:
-        cols_listado_cruzado += ["correo_campus"]
+        cols_listado_cruzado.append("correo_campus")
 
-    for col in cols_autoevaluaciones:
-        cols_listado_cruzado.append(col)
+    cols_listado_cruzado.extend(cols_autoevaluaciones)
+
     return listado_cruzado[cols_listado_cruzado]
 
 
