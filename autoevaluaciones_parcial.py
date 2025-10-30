@@ -37,6 +37,7 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
+        incluir_correo_campus=False,
     )
     listado_cruzado = _determinar_alumnos_habilitados(
         df=listado_cruzado,
@@ -108,6 +109,7 @@ def cruzar_listas_actas_notas(
         listado_actas=listado_actas,
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
+        incluir_correo_campus=True,
     )
     # Agregamos los certificados
     listado_cruzado_notas = _procesar_certificados(
@@ -253,40 +255,38 @@ def _aplicar_calculo_promedio_y_renombrar(
 def _corregir_alumnos_duplicados_en_campus(
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list[str],
-    mostrar_duplicados_campus: bool,
+    mostrar_duplicados_campus: bool = False,
 ) -> dict:
-    _listado_campus = listado_campus.copy(deep=True)
-    # Determinar alumnos duplicados en el listado del campus
-    dni_alumnos_duplicados = _listado_campus["Número de ID"].value_counts()
-    dni_alumnos_duplicados = dni_alumnos_duplicados[
-        dni_alumnos_duplicados > 1
-    ].index.to_list()
-    # Por cada alumno duplicado, determinar cuál entrada tiene menos valores faltantes en las columnas de las autoevaluaciones y eliminar las demás # noqa E501
-    if len(dni_alumnos_duplicados) > 0:
-        for dni in dni_alumnos_duplicados:
-            lista_temp = _listado_campus.copy()
-            lista_temp = lista_temp[lista_temp["Número de ID"] == dni]
-            lista_temp["n_nan"] = lista_temp[cols_autoevaluaciones].isna().sum(axis=1)
-            filas_a_eliminar = [
-                fila
-                for fila in lista_temp.index.to_list()
-                if fila != lista_temp["n_nan"].idxmin()
-            ]
-            _listado_campus = _listado_campus.drop(filas_a_eliminar, axis=0)
+    # Copia principal (una sola vez)
+    df = listado_campus.copy()
 
-    df_duplicados = _listado_campus[
-        _listado_campus["Número de ID"].isin(dni_alumnos_duplicados)
-    ]
+    # Calcular el número de NaN por fila (una sola vez)
+    df["n_nan"] = df[cols_autoevaluaciones].isna().sum(axis=1)
 
-    if mostrar_duplicados_campus:
-        print(
-            f"Alumnos duplicados:\n{19 * '*'}\n{df_duplicados.to_string()}"  # noqa E501
-        )
-    dfs = {
-        "listado_campus": _listado_campus,
-        "duplicados": df_duplicados,
+    # Ordenar de modo que se mantenga la fila con menos NaN para cada alumno
+    df_sorted = df.sort_values(by=["Número de ID", "n_nan"], ascending=[True, True])
+
+    # Eliminar duplicados manteniendo la mejor fila (menos NaN)
+    df_unique = df_sorted.drop_duplicates(subset="Número de ID", keep="first")
+
+    # Detectar duplicados originales (antes de corregir)
+    dni_duplicados = (
+        listado_campus["Número de ID"].value_counts().loc[lambda x: x > 1].index
+    )
+
+    df_duplicados = listado_campus[listado_campus["Número de ID"].isin(dni_duplicados)]
+
+    # Mostrar duplicados si corresponde
+    if mostrar_duplicados_campus and not df_duplicados.empty:
+        print(f"Alumnos duplicados:\n{'*' * 19}\n{df_duplicados.to_string()}")
+
+    # Limpiar la columna auxiliar
+    df_unique = df_unique.drop(columns="n_nan")
+
+    return {
+        "listado_campus": df_unique.reset_index(drop=True),
+        "duplicados": df_duplicados.reset_index(drop=True),
     }
-    return dfs
 
 
 def _corregir_dni_en_listado_campus(
@@ -438,16 +438,20 @@ def _crear_listado_cruzado(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list,
+    incluir_correo_campus: bool = False,
 ) -> pd.DataFrame:
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
-        right=listado_campus,
+        right=listado_campus.rename(columns={"Dirección de correo": "correo_campus"}),
         how="left",
         left_on="Dni",
         right_on="Número de ID",
     )
     cols_listado_cruzado = ["C", "AyN", "Dni"]
+    if incluir_correo_campus:
+        cols_listado_cruzado += ["correo_campus"]
+
     for col in cols_autoevaluaciones:
         cols_listado_cruzado.append(col)
     return listado_cruzado[cols_listado_cruzado]
@@ -571,7 +575,7 @@ def _generar_resumen_condiciones(
     df: pd.DataFrame,
     condiciones: list[str],
 ) -> pd.DataFrame:
-    VALORES_POSIBLES = ("libre", "libre_por_nota", "regular", "pendiente", "promocion")
+    VALORES_POSIBLES = ("promocion", "regular", "libre_por_nota", "libre", "pendiente")
 
     resumen_list = [
         df[cond].value_counts().reindex(VALORES_POSIBLES, fill_value=0).rename(cond)

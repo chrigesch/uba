@@ -13,9 +13,9 @@ def test_generar_resumen_promociones_basico():
     )
     expected = pd.DataFrame(
         {
-            "index": ["libre", "libre_por_nota", "regular", "pendiente", "promocion"],
-            "cond_prom_6_y_6": [1.0, 0.0, 1.0, 0.0, 1.0],
-            "cond_prom_7_y_7": [1.0, 0.0, 0.0, 0.0, 2.0],
+            "index": ["promocion", "regular", "libre_por_nota", "libre", "pendiente"],
+            "cond_prom_6_y_6": [1.0, 1.0, 0.0, 1.0, 0.0],
+            "cond_prom_7_y_7": [2.0, 0.0, 0.0, 1.0, 0.0],
         }
     )
 
