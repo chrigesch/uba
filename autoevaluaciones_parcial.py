@@ -447,10 +447,10 @@ def _crear_listado_cruzado(
     )
     cols_listado_cruzado = ["C", "AyN", "Dni"]
     if incluir_correo_campus:
-        cols_listado_cruzado += ["correo_campus"]
+        cols_listado_cruzado.append("correo_campus")
 
-    for col in cols_autoevaluaciones:
-        cols_listado_cruzado.append(col)
+    cols_listado_cruzado.extend(cols_autoevaluaciones)
+
     return listado_cruzado[cols_listado_cruzado]
 
 
