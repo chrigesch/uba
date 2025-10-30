@@ -257,17 +257,14 @@ def _corregir_alumnos_duplicados_en_campus(
     cols_autoevaluaciones: list[str],
     mostrar_duplicados_campus: bool = False,
 ) -> dict:
-    # Copia principal (una sola vez)
-    df = listado_campus.copy()
+    # Calcular número de NaN por fila en las columnas de autoevaluación (sin asignarlo)
+    n_nan = listado_campus[cols_autoevaluaciones].isna().sum(axis=1)
 
-    # Calcular el número de NaN por fila (una sola vez)
-    df["n_nan"] = df[cols_autoevaluaciones].isna().sum(axis=1)
+    # Seleccionar los índices de las filas “mejores” (menos NaN) para cada alumno
+    mejores_idx = n_nan.groupby(listado_campus["Número de ID"]).idxmin()
 
-    # Ordenar de modo que se mantenga la fila con menos NaN para cada alumno
-    df_sorted = df.sort_values(by=["Número de ID", "n_nan"], ascending=[True, True])
-
-    # Eliminar duplicados manteniendo la mejor fila (menos NaN)
-    df_unique = df_sorted.drop_duplicates(subset="Número de ID", keep="first")
+    # Filtrar el DataFrame conservando solo las mejores filas
+    df_corregido = listado_campus.loc[mejores_idx].reset_index(drop=True).copy()
 
     # Detectar duplicados originales (antes de corregir)
     dni_duplicados = (
@@ -280,11 +277,8 @@ def _corregir_alumnos_duplicados_en_campus(
     if mostrar_duplicados_campus and not df_duplicados.empty:
         print(f"Alumnos duplicados:\n{'*' * 19}\n{df_duplicados.to_string()}")
 
-    # Limpiar la columna auxiliar
-    df_unique = df_unique.drop(columns="n_nan")
-
     return {
-        "listado_campus": df_unique.reset_index(drop=True),
+        "listado_campus": df_corregido,
         "duplicados": df_duplicados.reset_index(drop=True),
     }
 
