@@ -37,6 +37,7 @@ def cruzar_listas_actas_autoevaluaciones(
         listado_actas=listado_actas,
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
+        incluir_correo_campus=False,
     )
     listado_cruzado = _determinar_alumnos_habilitados(
         df=listado_cruzado,
@@ -108,6 +109,7 @@ def cruzar_listas_actas_notas(
         listado_actas=listado_actas,
         listado_campus=listado_campus_con_correcciones["listado_campus"],
         cols_autoevaluaciones=cols_autoevaluaciones,
+        incluir_correo_campus=True,
     )
     # Agregamos los certificados
     listado_cruzado_notas = _procesar_certificados(
@@ -436,16 +438,20 @@ def _crear_listado_cruzado(
     listado_actas: pd.DataFrame,
     listado_campus: pd.DataFrame,
     cols_autoevaluaciones: list,
+    incluir_correo_campus: bool = False,
 ) -> pd.DataFrame:
     # Crear el listado cruzado y seleccionar solamente las columnas de interés
     listado_cruzado = pd.merge(
         left=listado_actas,
-        right=listado_campus,
+        right=listado_campus.rename(columns={"Dirección de correo": "correo_campus"}),
         how="left",
         left_on="Dni",
         right_on="Número de ID",
     )
     cols_listado_cruzado = ["C", "AyN", "Dni"]
+    if incluir_correo_campus:
+        cols_listado_cruzado += ["correo_campus"]
+
     for col in cols_autoevaluaciones:
         cols_listado_cruzado.append(col)
     return listado_cruzado[cols_listado_cruzado]
