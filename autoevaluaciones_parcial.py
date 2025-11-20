@@ -116,6 +116,7 @@ def cruzar_listas_actas_notas(
         listado_cruzado=listado_cruzado_notas,
         listado_actas=listado_actas,
         listado_certificados=listado_certificados,
+        condicion=condicion,
     )
     # Agregamos columna para indicar si es diferido
     listado_cruzado_notas["diferido"] = np.where(
@@ -642,7 +643,9 @@ def _procesar_certificados(
     listado_cruzado: pd.DataFrame,
     listado_actas: pd.DataFrame,
     listado_certificados: pd.DataFrame | None,
+    condicion: Literal["preliminar", "final"],
 ) -> pd.DataFrame:
+    lcru = listado_cruzado.copy()
     COLS_NOMBRES = (
         "certificado_valido_p1",
         "tipo_de_certificado_p1",
@@ -651,10 +654,10 @@ def _procesar_certificados(
     )
     # Crear placeholders
     for col in COLS_NOMBRES:
-        listado_cruzado[col] = np.nan if "tipo" in col else False
+        lcru[col] = np.nan if "tipo" in col else False
 
     if listado_certificados is None:
-        return listado_cruzado
+        return lcru
 
     print(
         f"Revisar orden de columnas del 'listado_certificados' y corregir, si necesario:\n{78 * '*'}\n{listado_certificados.columns}"  # noqa: E501
@@ -663,12 +666,8 @@ def _procesar_certificados(
     # Renombrar las últimas 4 columnas
     listado_certificados.columns.values[-4:] = COLS_NOMBRES
 
-    # Convertir columnas de tipo str a minúscula
-    for col in COLS_NOMBRES:
-        listado_certificados[col] = listado_certificados[col].str.lower()
-
     # Merge temporal
-    listado_cruzado_temp = pd.merge(
+    lcru_temp = pd.merge(
         left=listado_actas,
         right=listado_certificados,
         how="left",
@@ -677,11 +676,21 @@ def _procesar_certificados(
     )
 
     # Actualizar los valores en el DataFrame final
-    for col in ["certificado_valido_p1", "certificado_valido_p2"]:
-        listado_cruzado[col] = np.where(
-            listado_cruzado_temp[col].isin(["si", "sí"]), True, False
-        )
     for col in ["tipo_de_certificado_p1", "tipo_de_certificado_p2"]:
-        listado_cruzado[col] = listado_cruzado_temp[col]
+        lcru[col] = lcru_temp[col]
 
-    return listado_cruzado
+    for col in ["certificado_valido_p1", "certificado_valido_p2"]:
+        # Normalizar valores (si hay un valor ausente es que NO tiene certificado válido)
+        serie = lcru_temp[col].fillna("no").astype(str).str.lower().str.strip()
+        serie = serie.replace("sí", "si")
+        if condicion == "final":
+            valores = set(serie.unique())
+            if not valores.issubset({"si", "no"}):
+                raise ValueError(
+                    f"Si condición == 'final', solo se permite 'si' o 'no' en {col}. "
+                    f"Se encontraron: {valores}"
+                )
+        # Considerar todas las modalidades que no sean "no" como "sí" (en caso que sea "preliminar")
+        lcru[col] = np.where(serie == "no", False, True)
+
+    return lcru
