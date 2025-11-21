@@ -244,6 +244,8 @@ def _aplicar_calculo_promedio_y_renombrar(
             return p1
         elif pd.isna(p1) and p2 < 4 and pd.isna(rec):
             return p2
+        elif pd.isna(p1) and pd.isna(p2) and rec < 4:
+            return rec
         else:
             return np.nan
 
